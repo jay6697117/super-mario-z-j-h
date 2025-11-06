@@ -32,6 +32,14 @@ class SFX {
     g.gain.setValueAtTime(1, now); g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
     o.connect(g).connect(this.master); o.start(now); o.stop(now + dur + decay);
   }
+  bipAt(when, { freq = 600, dur = 0.1, type = 'square' } = {}) {
+    if (!this.ctx) return;
+    const o = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(1, when); g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    o.connect(g).connect(this.master); o.start(when); o.stop(when + dur + 0.02);
+  }
 
   jump() { this.bip({ freq: 500, dur: 0.12, type: 'square' }); }
   coin() { this.bip({ freq: 900, dur: 0.09, type: 'triangle' }); }
@@ -64,6 +72,11 @@ class SFX {
         this.bip({ freq: base*1.26|0, dur: 0.025, type: 'square' });
       }
     }
+  }
+  victoryJingle() {
+    if (!this.ctx) return; const t0 = this.ctx.currentTime + 0.02;
+    const seq = [523, 659, 784, 1046]; // C5 E5 G5 C6
+    const step = 0.16; for (let i=0;i<seq.length;i++) this.bipAt(t0 + i*step, { freq: seq[i], dur: 0.12, type: 'triangle' });
   }
   alertBeep() { this.bip({ freq: 950, dur: 0.05, type: 'square' }); }
 }

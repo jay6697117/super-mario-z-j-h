@@ -42,12 +42,12 @@ const hudLevel = document.getElementById('level');
 const banner = document.getElementById('banner');
 const hudRoot = document.getElementById('hud');
 
-const GameState = { Playing: 'playing', Paused: 'paused', Win: 'win', Lose: 'lose' };
+const GameState = { Playing: 'playing', Paused: 'paused', Win: 'win', Lose: 'lose', Select: 'select' };
 // 暴露测试入口
 try { window.runTests = runTests; } catch {}
 const game = { state: GameState.Playing, level:null, input:new Input(), renderer:new Renderer(canvas, ctx), physics:new Physics(), particles:new Particles(), player:null, entities:[], score:0, coins:0, lives:Infinity, resetRequested:false, currentLevelIndex:0, lastShotAt:0, time:300, timeMax:300, lastTimeSec:null, winStage:null, flagBonus:0, ui:new GameUI(ctx), lowTimeThreshold: GAME_CONFIG.lowTimeThreshold, alertLastSeconds: GAME_CONFIG.alertLastSeconds, timeBonusPerSecond: GAME_CONFIG.timeBonusPerSecond, editor:null };
 
-function getLevelByIndex(i){ if(i===0) return createLevel1(); if(i===1) return createLevel2(); if(i===2) return createLevel3(); if(i===3) return createLevel4(); return createLevel1(); }
+function getLevelByIndex(i){ const m = ((i%4)+4)%4; if(m===0) return createLevel1(); if(m===1) return createLevel2(); if(m===2) return createLevel3(); if(m===3) return createLevel4(); return createLevel1(); }
 const WORLD_MAP = WORLD_MAP_DATA;
 // 读取存档的当前关卡
 try { const savedIndex = loadCurrentLevel(); if (typeof savedIndex==='number') game.currentLevelIndex = Math.max(0, Math.min(savedIndex, WORLD_MAP.length-1)); } catch {}
@@ -99,7 +99,7 @@ function updateHUD(){ hudScore.textContent=String(game.score); hudCoins.textCont
 function showBanner(text){ banner.textContent=text; banner.style.display='flex'; }
 function hideBanner(){ banner.style.display='none'; }
 
-document.addEventListener('keydown', (e)=>{ sfx.initOnUserGesture(); const block=['Space','KeyX']; if(block.includes(e.code)) e.preventDefault(); if(e.code==='KeyP'){ if(game.state===GameState.Playing){ game.state=GameState.Paused; showBanner('已暂停 P 继续'); } else if (game.state===GameState.Paused){ game.state=GameState.Playing; hideBanner(); } } if(e.code==='KeyR'){ if(game.state===GameState.Win || game.state===GameState.Lose){ loadLevel(); hideBanner(); } else { game.resetRequested=true; } } if (e.code==='KeyE'){ if (!game.editor) game.editor = new LevelEditor(game, canvas, game.renderer); game.editor.toggle(); if (game.editor.active) showBanner('编辑器模式 E 退出'); else hideBanner(); } if (e.code==='KeyO'){ // 快照下载
+document.addEventListener('keydown', (e)=>{ sfx.initOnUserGesture(); const block=['Space','KeyX']; if(block.includes(e.code)) e.preventDefault(); if(e.code==='KeyP'){ if(game.state===GameState.Playing){ game.state=GameState.Paused; showBanner('已暂停 P 继续'); } else if (game.state===GameState.Paused){ game.state=GameState.Playing; hideBanner(); } } if(e.code==='KeyR'){ if(game.state===GameState.Win || game.state===GameState.Lose){ loadLevel(); hideBanner(); } else { game.resetRequested=true; } } if (e.code==='KeyE'){ if (!game.editor) game.editor = new LevelEditor(game, canvas, game.renderer); game.editor.toggle(); if (game.editor.active) showBanner('编辑器模式 E 退出'); else hideBanner(); } if (e.code==='KeyM'){ if (game.state!==GameState.Select){ game.state=GameState.Select; game._selectingWorld=true; showBanner('世界选择：按 1~8 跳转，M 退出'); } else { game.state=GameState.Playing; game._selectingWorld=false; hideBanner(); } } if (game._selectingWorld && /^Digit[1-8]$/.test(e.code)){ const idx=parseInt(e.code.slice(5))-1; game.currentLevelIndex=Math.max(0,Math.min(idx,7)); hideBanner(); game.state=GameState.Playing; loadLevel(); } if (e.code==='KeyO'){ // 快照下载
   const a=document.createElement('a'); a.href=canvas.toDataURL('image/png'); a.download=`snapshot-${Date.now()}.png`; a.click(); } });
 const touch=document.getElementById('touch'); if(touch){ const apply=(el,on)=>{ const key=el.dataset.key; const handler=(ev)=>{ ev.preventDefault(); game.input.setVirtual(key,on);} ; el.addEventListener('touchstart',handler,{passive:false}); el.addEventListener('touchend',(ev)=>{ev.preventDefault(); game.input.setVirtual(key,false);},{passive:false}); el.addEventListener('touchcancel',(ev)=>{ev.preventDefault(); game.input.setVirtual(key,false);},{passive:false}); el.addEventListener('mousedown',handler); el.addEventListener('mouseup',()=>game.input.setVirtual(key,false)); el.addEventListener('mouseleave',()=>game.input.setVirtual(key,false)); }; touch.querySelectorAll('button').forEach((btn)=>apply(btn,true)); }
 
@@ -256,15 +256,18 @@ function step(dt){
         if (delta>0) { game.score += delta * (game.timeBonusPerSecond||GAME_CONFIG.timeBonusPerSecond); sfx.alertBeep(); }
         updateHUD();
       } else {
-        // 切入庆祝阶段
+        // 切入庆祝阶段（COURSE CLEAR!）
         game.winStage = 'celebrate';
         game.score += game.flagBonus; updateHUD(); sfx.win();
+        sfx.victoryJingle?.();
         const d = (game._timeAtFlagSec||0) % 10; game._fwRemain = (d===1?1:(d===3?3:(d===6?6:0))); game._fwTimer = 0; game._nextCountdown = 3; game._celebrateTick = 0;
-        if (game.currentLevelIndex===0) { game._nextMsg='1-1 通关！{n} 秒后进入 1-2（按 R 立即进入）'; game.currentLevelIndex=1; }
-        else if (game.currentLevelIndex===1) { game._nextMsg='1-2 通关！{n} 秒后进入 1-3（按 R 立即进入）'; game.currentLevelIndex=2; }
-        else if (game.currentLevelIndex===2) { game._nextMsg='1-3 通关！{n} 秒后进入 1-4（按 R 立即进入）'; game.currentLevelIndex=3; }
-        else { game._nextMsg='全部通关！{n} 秒后回到 1-1（按 R 立即进入）'; game.currentLevelIndex=0; }
+        if (game.currentLevelIndex===0) { game._nextMsg='COURSE CLEAR! 1-1 通关！{n} 秒后进入 1-2（按 R 立即进入）'; game.currentLevelIndex=1; }
+        else if (game.currentLevelIndex===1) { game._nextMsg='COURSE CLEAR! 1-2 通关！{n} 秒后进入 1-3（按 R 立即进入）'; game.currentLevelIndex=2; }
+        else if (game.currentLevelIndex===2) { game._nextMsg='COURSE CLEAR! 1-3 通关！{n} 秒后进入 1-4（按 R 立即进入）'; game.currentLevelIndex=3; }
+        else { game._nextMsg='COURSE CLEAR! 全部通关！{n} 秒后回到 1-1（按 R 立即进入）'; game.currentLevelIndex=0; }
         showBanner(game._nextMsg.replace('{n}', String(game._nextCountdown)));
+        // 入城门/淡出短演出
+        game._fadeAlpha = 0; game._doorTimer = 0.9;
       }
     }
     else if (game.winStage === 'celebrate') {
@@ -279,6 +282,8 @@ function step(dt){
       }
       // 倒计时自动进入下一关
       game._celebrateTick += dt;
+      // 入门奔跑与淡出
+      if (game._doorTimer!=null && game._doorTimer>0){ game._doorTimer-=dt; player.x = Math.min(player.x + 80*dt, level.cols*TILE_SIZE - player.w - 1); player.pose='run'; game._fadeAlpha = Math.min(1, (game._fadeAlpha||0) + dt/0.9); }
       if (game._celebrateTick>=1) { game._celebrateTick=0; game._nextCountdown = Math.max(0, (game._nextCountdown||0)-1); showBanner(game._nextMsg.replace('{n}', String(game._nextCountdown))); }
       if ((game._nextCountdown||0) <= 0) { hideBanner(); try { saveCurrentLevel?.(game.currentLevelIndex); const levelId = getLevelId?.(game.currentLevelIndex); if (levelId) clearCheckpoint?.(levelId); } catch {}; loadLevel(); }
     }
@@ -298,6 +303,6 @@ function step(dt){
   game.renderer.updateCamera(dt);
 }
 
-function render(){ const { renderer, level, player, entities } = game; renderer.clear(); renderer.drawBackground(level); renderer.drawLevel(level); for(const ent of entities) renderer.drawEntity(ent); renderer.drawEntity(player); game.particles.draw(renderer.ctx, renderer.camera); if (game.editor && game.editor.active) game.editor.drawOverlay(renderer.ctx); if (game.winStage==='count') { game.ui.drawSettlement(renderer.canvas.width, renderer.canvas.height, { time: Math.ceil(Math.max(0, game.time)), score: game.score, flagBonus: game.flagBonus }); } }
+function render(){ const { renderer, level, player, entities } = game; renderer.clear(); renderer.drawBackground(level); renderer.drawLevel(level); for(const ent of entities) renderer.drawEntity(ent); renderer.drawEntity(player); game.particles.draw(renderer.ctx, renderer.camera); if (game.editor && game.editor.active) game.editor.drawOverlay(renderer.ctx); if (game.winStage==='count') { game.ui.drawSettlement(renderer.canvas.width, renderer.canvas.height, { time: Math.ceil(Math.max(0, game.time)), score: game.score, flagBonus: game.flagBonus }); } if (game.winStage==='celebrate'){ const ctx=renderer.ctx; ctx.save(); ctx.fillStyle=`rgba(0,0,0,${Math.max(0,Math.min(1, game._fadeAlpha||0))})`; ctx.fillRect(0,0,renderer.canvas.width,renderer.canvas.height); ctx.restore(); }
 
 loadLevel(); requestAnimationFrame(frame);
