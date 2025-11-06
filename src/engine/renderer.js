@@ -70,14 +70,20 @@ export class Renderer {
   drawLevel(level){ const ctx=this.ctx; const c=this.camera; const cx=Math.round(c.x); const cy=Math.round(c.y); const startCol=Math.floor(cx/TILE_SIZE); const endCol=Math.min(level.cols-1,Math.floor((cx+c.w)/TILE_SIZE)); const startRow=Math.floor(cy/TILE_SIZE); const endRow=Math.min(level.rows-1,Math.floor((cy+c.h)/TILE_SIZE)); for(let r=startRow;r<=endRow;r++){ for(let col=startCol; col<=endCol; col++){ const t=level.get(col,r); if(t==='-') continue; const x=col*TILE_SIZE-cx; const y=r*TILE_SIZE-cy; const rx=Math.round(x), ry=Math.round(y); if(t==='#'||t==='B'||t==='N'){ ctx.fillStyle=t==='#'?'#7c4f1d':'#a16207'; ctx.fillRect(rx,ry,TILE_SIZE,TILE_SIZE); ctx.strokeStyle='#00000033'; ctx.lineWidth=2; ctx.strokeRect(rx+1,ry+1,TILE_SIZE-2,TILE_SIZE-2); if(t==='N'){ ctx.fillStyle='#eab30822'; ctx.fillRect(rx+6,ry+6,TILE_SIZE-12,TILE_SIZE-12);} } else if (t==='F'){ // 旗杆与旗帜飘动
         const poleX = Math.round(x + TILE_SIZE*0.45), poleTop = Math.round(y - TILE_SIZE*3);
         ctx.fillStyle='#14532d'; ctx.fillRect(poleX, poleTop, 4, TILE_SIZE*4);
-        const wave = Math.sin((this._tick||0)*2 + col*0.3) * 3;
+        const extra = this._flagWaveExtra || 0;
+        const wave = Math.sin((this._tick||0)*2 + col*0.3) * (3 + extra);
         ctx.fillStyle='#16a34a'; ctx.beginPath(); ctx.moveTo(poleX+4, poleTop); ctx.lineTo(poleX+4+24+wave, poleTop+12); ctx.lineTo(poleX+4, poleTop+24); ctx.closePath(); ctx.fill();
       } else if (t==='Q' || t==='M'){ ctx.fillStyle= t==='Q' ? '#f59e0b' : '#fbbf24'; ctx.fillRect(rx,ry,TILE_SIZE,TILE_SIZE); ctx.strokeStyle='#78350f'; ctx.strokeRect(rx+1,ry+1,TILE_SIZE-2,TILE_SIZE-2); ctx.fillStyle='#78350f'; ctx.font='bold 18px sans-serif'; ctx.fillText('?',rx+10,ry+22);} else if (t==='V'){ // 入口管道（渐变+内阴影）
         const g=ctx.createLinearGradient(rx,ry,rx,ry+TILE_SIZE); g.addColorStop(0,'#38a169'); g.addColorStop(1,'#166534'); ctx.fillStyle=g; ctx.fillRect(rx,ry,TILE_SIZE,TILE_SIZE);
-        ctx.fillStyle='#15803d'; ctx.fillRect(rx,ry, TILE_SIZE, 8); ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.fillRect(rx+4,ry+8,TILE_SIZE-8,4);
+        ctx.fillStyle='#15803d'; ctx.fillRect(rx,ry, TILE_SIZE, Math.round(TILE_SIZE*0.25));
+        // 圆角内阴影（按 TILE_SIZE 比例）
+        ctx.fillStyle='rgba(0,0,0,0.20)'; ctx.beginPath(); ctx.ellipse(rx+TILE_SIZE/2, ry+Math.round(TILE_SIZE*0.3), TILE_SIZE*0.35, Math.max(3, TILE_SIZE*0.15), 0, 0, Math.PI*2); ctx.fill();
       } else if (t==='X'){ // 出口管道（渐变+上沿暗影）
         const g2=ctx.createLinearGradient(rx,ry,rx,ry+TILE_SIZE); g2.addColorStop(0,'#166534'); g2.addColorStop(1,'#16a34a'); ctx.fillStyle=g2; ctx.fillRect(rx,ry,TILE_SIZE,TILE_SIZE);
-        ctx.fillStyle='#16a34a'; ctx.fillRect(rx+4,ry+4,TILE_SIZE-8,TILE_SIZE-8); ctx.fillStyle='rgba(0,0,0,0.12)'; ctx.fillRect(rx+4,ry+4,TILE_SIZE-8,4);
+        const inset=Math.round(TILE_SIZE*0.12);
+        ctx.fillStyle='#16a34a'; ctx.fillRect(rx+inset,ry+inset,TILE_SIZE-inset*2,TILE_SIZE-inset*2);
+        ctx.fillStyle='rgba(0,0,0,0.12)'; ctx.fillRect(rx+inset,ry+inset,TILE_SIZE-inset*2,Math.round(TILE_SIZE*0.12));
+        ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.ellipse(rx+TILE_SIZE/2, ry+Math.round(TILE_SIZE*0.22), TILE_SIZE*0.32, Math.max(3, TILE_SIZE*0.12), 0, 0, Math.PI*2); ctx.fill();
       } else if (t==='A'){ // 斧头
         ctx.fillStyle='#ef4444'; ctx.beginPath(); ctx.arc(rx+TILE_SIZE/2, ry+TILE_SIZE/2, 10, 0, Math.PI*2); ctx.fill(); ctx.fillStyle='#1f2937'; ctx.fillRect(rx+TILE_SIZE/2-2, ry+2, 4, TILE_SIZE-4);
       } else if (t==='K') { // checkpoint flag tile
@@ -198,7 +204,7 @@ export class Renderer {
       ctx.fillRect(Math.round(sx+w-4-w*0.35+ox - swing), Math.round(sy+h-6+oy), w*0.35, 4);
     }
     // 无敌罩与受击闪烁
-    if(ent.invincibleTime&&ent.invincibleTime>0){ ctx.fillStyle='rgba(252,211,77,0.35)'; ctx.fillRect(sx-2,sy-2,w+4,h+4); }
-    if(pose==='hurt'){ ctx.fillStyle='rgba(239,68,68,0.25)'; ctx.fillRect(sx-2,sy-2,w+4,h+4); }
+    if(ent.invincibleTime&&ent.invincibleTime>0){ const a=0.25+0.15*Math.sin((ent.animTime||0)*12); ctx.save(); ctx.globalAlpha=Math.max(0.1,Math.min(0.6,a)); ctx.fillStyle='rgba(252,211,77,1)'; ctx.fillRect(sx-3,sy-3,w+6,h+6); ctx.restore(); }
+    if(pose==='hurt'){ const a=0.25+0.15*Math.sin((ent.animTime||0)*16); ctx.save(); ctx.globalAlpha=a; ctx.fillStyle='rgba(239,68,68,1)'; ctx.fillRect(sx-2,sy-2,w+4,h+4); ctx.restore(); }
   }
 }

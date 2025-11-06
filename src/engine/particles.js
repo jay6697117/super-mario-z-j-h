@@ -19,7 +19,15 @@ export class Particles {
     }
   }
   text(x,y,content,color='#ffffff',life=0.9){
-    this.items.push({type:'text',x,y,vx:0,vy:-60,life,ttl:life,color,text:content});
+    // 轻微横向摆动 + 透明度按life渐变
+    this.items.push({type:'text',x,y,vx:0,vy:-60,life,ttl:life,color,text:content,phase:Math.random()*Math.PI*2,sway:6});
+  }
+  // 擦痕短线：急停/起跑时地面短线粒子
+  skid(x,y,dir=1,count=6,color='#9ca3af'){
+    for(let i=0;i<count;i++){
+      const w=6+Math.random()*4, h=2; const off=(Math.random()-0.5)*6;
+      this.items.push({type:'rect',x:x+off,y:y, vx:dir*20, vy:-20-Math.random()*30, life:0.22+Math.random()*0.18, ttl:0.4, color, w, h});
+    }
   }
   update(dt){
     for(const p of this.items){
@@ -36,11 +44,13 @@ export class Particles {
       if(p.type==='text'){
         const alpha = Math.max(0, Math.min(1, p.life / (p.ttl||1)));
         ctx.globalAlpha = alpha;
+        const sway = p.sway||0; const dx = Math.sin(((p.ttl||1)-(p.life||0))*6 + (p.phase||0)) * sway;
         ctx.fillStyle=p.color; ctx.font='bold 14px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText(p.text, sx, sy);
+        ctx.fillText(p.text, sx+dx, sy);
         ctx.globalAlpha = 1;
       } else {
-        ctx.fillStyle=p.color; ctx.fillRect(sx,sy,3,3);
+        const rw = p.w||3, rh=p.h||3;
+        ctx.fillStyle=p.color; ctx.fillRect(sx,sy,rw,rh);
       }
     }
     ctx.restore();

@@ -105,7 +105,13 @@ function loadLevel(){
   try { const label = WORLD_MAP[game.currentLevelIndex]||''; showBanner(`WORLD ${label}`); setTimeout(hideBanner, 800); } catch {}
   sfx.musicStart();
 }
-function updateHUD(){ hudScore.textContent=String(game.score); hudCoins.textContent=String(game.coins); hudLives.textContent=(game.lives===Infinity?'∞':String(Math.max(0, game.lives))); const tNode=document.getElementById('time'); if(tNode) tNode.textContent=String(Math.max(0, Math.ceil(game.time))); }
+function updateHUD(){
+  const addBump=(el)=>{ try{ el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }catch{} };
+  if (hudScore){ const prev=game._hudPrevScore; const v=String(game.score); hudScore.textContent=v; if(prev!==undefined && prev!=v) addBump(hudScore); game._hudPrevScore=v; }
+  if (hudCoins){ const prev=game._hudPrevCoins; const v=String(game.coins); hudCoins.textContent=v; if(prev!==undefined && prev!=v) addBump(hudCoins); game._hudPrevCoins=v; }
+  if (hudLives){ const prev=game._hudPrevLives; const v=(game.lives===Infinity?'∞':String(Math.max(0, game.lives))); hudLives.textContent=v; if(prev!==undefined && prev!=v) addBump(hudLives); game._hudPrevLives=v; }
+  const tNode=document.getElementById('time'); if(tNode){ const v=String(Math.max(0, Math.ceil(game.time))); if (tNode.textContent!==v){ tNode.textContent=v; addBump(tNode); } }
+}
 function showBanner(text){ banner.textContent=text; banner.style.display='flex'; }
 function hideBanner(){ banner.style.display='none'; }
 
@@ -141,8 +147,8 @@ function step(dt){
   player.update(dt, input, physics, level);
   if ((game.level && game.level.theme) !== 'water' && !input.jump && player.vy < -120) player.vy *= 0.7;
   if (!wasGrounded && player.grounded) { game.particles.spark(player.x + player.w/2, player.y + player.h, '#cbd5e1', 6); game.particles.dust(player.x + player.w/2, player.y + player.h, '#e5e7eb', 10); }
-  if (Math.abs(prevVx) > 150 && Math.sign(prevVx) !== Math.sign(player.vx) && player.grounded) game.particles.dust(player.x + player.w/2, player.y + player.h, '#d1d5db', 10);
-  if (Math.abs(prevVx) < 20 && Math.abs(player.vx) > 80 && player.grounded) game.particles.dust(player.x + player.w/2, player.y + player.h, '#e5e7eb', 8);
+  if (Math.abs(prevVx) > 150 && Math.sign(prevVx) !== Math.sign(player.vx) && player.grounded) { game.particles.dust(player.x + player.w/2, player.y + player.h, '#d1d5db', 10); game.particles.skid(player.x + player.w/2, player.y + player.h, Math.sign(prevVx), 6); }
+  if (Math.abs(prevVx) < 20 && Math.abs(player.vx) > 80 && player.grounded) { game.particles.dust(player.x + player.w/2, player.y + player.h, '#e5e7eb', 8); game.particles.skid(player.x + player.w/2, player.y + player.h, Math.sign(player.vx)||1, 4); }
 
   // 计时与HUD
   game.time -= dt;
@@ -308,7 +314,7 @@ function step(dt){
       game._flagX = flagTile.x*TILE_SIZE; game._timeAtFlagSec = Math.max(0, Math.ceil(game.time));
       player.x = flagTile.x*TILE_SIZE + TILE_SIZE*0.45 - player.w/2; player.vx=0; player.vy=0; game._flagBottom=(flagTile.y*TILE_SIZE)+TILE_SIZE - player.h - 2;
     }
-    if (game.winStage === 'slide') { if (player.y < game._flagBottom) { player.y = Math.min(game._flagBottom, player.y + GAME_CONFIG.flagSlideSpeed*dt); player.pose='slide'; } else game.winStage = 'count'; }
+    if (game.winStage === 'slide') { if (player.y < game._flagBottom) { player.y = Math.min(game._flagBottom, player.y + GAME_CONFIG.flagSlideSpeed*dt); player.pose='slide'; if (Math.random() < dt*12) game.particles.dust(player.x + player.w*0.5, player.y + player.h, '#e5e7eb', 6); } else game.winStage = 'count'; }
     else if (game.winStage === 'count') {
       if (game.time > 0) {
         const before = Math.ceil(game.time);
@@ -337,11 +343,19 @@ function step(dt){
       // 烟花：按节奏依次绽放
       if (game._fwTimer>0) game._fwTimer -= dt;
       if (game._fwRemain>0 && game._fwTimer<=0) {
-        game._fwTimer = 0.35; game._fwRemain--;
-        const fx = (game._flagX||player.x) + 80 + Math.random()*160;
-        const fy = Math.max(40, player.y - 140 - Math.random()*60);
-        game.particles.burstRect(fx, fy, 10, 10, '#fcd34d', 10, 260); sfx.firework();
-        const add = (GAME_CONFIG.fireworkScore||500); game.score += add; updateHUD(); game.particles.text(fx, fy-14, `+${add}`, '#fcd34d', 0.9);
+        // 抖动节奏：0.24~0.5s 随机间隔，数量逐渐靠近0
+        game._fwTimer = 0.24 + Math.random()*0.26; game._fwRemain--;
+        const baseX = (game._flagX||player.x) + 80, baseY = Math.max(40, player.y - 140);
+        const fx = baseX + (Math.random()*200-20);
+        const fy = baseY - Math.random()*60;
+        const hue = Math.random()<0.5? '#fcd34d' : (Math.random()<0.5? '#fb7185':'#60a5fa');
+        game.particles.burstRect(fx, fy, 10, 10, hue, 10, 260); sfx.firework();
+        const add = (GAME_CONFIG.fireworkScore||500); game.score += add; updateHUD(); game.particles.text(fx, fy-14, `+${add}`, hue, 0.9);
+        // 偶尔并发第二朵，制造“偶然性”
+        if (Math.random() < 0.2) {
+          const fx2 = baseX + (Math.random()*220-10); const fy2 = baseY - Math.random()*60;
+          setTimeout(()=>{ try{ game.particles.burstRect(fx2, fy2, 10, 10, hue, 10, 240); sfx.firework(); }catch{} }, 80+Math.random()*120);
+        }
       }
       // 倒计时自动进入下一关
       game._celebrateTick += dt;
@@ -382,7 +396,16 @@ function step(dt){
   game.renderer.updateCamera(dt);
 }
 
-function render(){ const { renderer, level, player, entities } = game; renderer.clear(); renderer.drawBackground(level); renderer.drawLevel(level); for(const ent of entities) renderer.drawEntity(ent); renderer.drawEntity(player); game.particles.draw(renderer.ctx, renderer.camera); if (game.editor && game.editor.active) game.editor.drawOverlay(renderer.ctx); if (game.winStage==='count') { game.ui.drawSettlement(renderer.canvas.width, renderer.canvas.height, { time: Math.ceil(Math.max(0, game.time)), score: game.score, flagBonus: game.flagBonus }); } if (game.winStage==='celebrate'){ const ctx=renderer.ctx; ctx.save(); ctx.fillStyle=`rgba(0,0,0,${Math.max(0,Math.min(1, game._fadeAlpha||0))})`; ctx.fillRect(0,0,renderer.canvas.width,renderer.canvas.height); ctx.restore(); } }
+function render(){ const { renderer, level, player, entities } = game; renderer.clear();
+  // 庆祝阶段额外旗帜摆幅
+  renderer._flagWaveExtra = (game.winStage==='celebrate') ? 5 : 0;
+  renderer.drawBackground(level); renderer.drawLevel(level);
+  for(const ent of entities) renderer.drawEntity(ent); renderer.drawEntity(player);
+  game.particles.draw(renderer.ctx, renderer.camera);
+  if (game.editor && game.editor.active) game.editor.drawOverlay(renderer.ctx);
+  if (game.winStage==='count') { game.ui.drawSettlement(renderer.canvas.width, renderer.canvas.height, { time: Math.ceil(Math.max(0, game.time)), score: game.score, flagBonus: game.flagBonus }); }
+  if (game.winStage==='celebrate'){ const ctx=renderer.ctx; ctx.save(); ctx.fillStyle=`rgba(0,0,0,${Math.max(0,Math.min(1, game._fadeAlpha||0))})`; ctx.fillRect(0,0,renderer.canvas.width,renderer.canvas.height); ctx.restore(); }
+}
 
 loadLevel(); requestAnimationFrame(frame);
   // 多金币砖计时衰减
