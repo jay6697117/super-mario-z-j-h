@@ -68,14 +68,17 @@ function loadLevel(){
     if(e.type==='coin') game.entities.push(new Coin(e.x,e.y));
     if(e.type==='mushroom') game.entities.push(new Mushroom(e.x,e.y));
     if(e.type==='flower') game.entities.push(new Flower(e.x,e.y));
-    if(e.type==='piranha') game.entities.push(new Piranha(e.x, e.y));
+    if(e.type==='piranha') {
+      const opts = { upTime: e.upTime, downTime: e.downTime, holdUp: e.holdUp, holdDown: e.holdDown, nearTilesX: e.nearTilesX, nearYOffset: e.nearYOffset };
+      game.entities.push(new Piranha(e.x, e.y, opts));
+    }
     if(e.type==='star') game.entities.push(new Star(e.x,e.y));
     if(e.type==='firebar') game.entities.push(new FireBar(e.x, e.y, e.segments, e.speed));
     if(e.type==='cheep') game.entities.push(new Cheep(e.x,e.y,e.dir||-1));
     if(e.type==='blooper') game.entities.push(new Blooper(e.x,e.y));
     if(e.type==='cannon') { const c=new Cannon(e.x,e.y,e.dir??-1,e.period??2.2); if(e.range!=null) c.range=e.range; if(e.maxActive!=null) c.maxActive=e.maxActive; game.entities.push(c);} 
     if(e.type==='hammer-bro') { const h=new HammerBro(e.x,e.y); if(e.jumpCd!=null) h.jumpCd=e.jumpCd; if(e.throwCd!=null) h.throwCd=e.throwCd; game.entities.push(h);} 
-    if(e.type==='lakitu') { const l=new Lakitu(e.x,e.y); if(e.dropCd!=null) l.dropCd=e.dropCd; game.entities.push(l);} 
+    if(e.type==='lakitu') { const l=new Lakitu(e.x,e.y); if(e.dropCd!=null) l.dropCd=e.dropCd; if(e.maxSpinyActive!=null) l.maxSpinyActive=e.maxSpinyActive; if(e.rangeTiles!=null) l.dropActiveRangeTiles=e.rangeTiles; game.entities.push(l);} 
     if(e.type==='spiny') game.entities.push(new Spiny(e.x,e.y));
   }
   game.renderer.setWorldSize(level.cols*TILE_SIZE, level.rows*TILE_SIZE);

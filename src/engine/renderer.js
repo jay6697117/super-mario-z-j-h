@@ -1,10 +1,16 @@
 import { TILE_SIZE } from '../constants.js';
 
 export class Renderer {
-  constructor(canvas, ctx) { this.canvas = canvas; this.ctx = ctx; this.camera = { x:0, y:0, w:canvas.width, h:canvas.height }; this.world={w:canvas.width,h:canvas.height}; this._target={x:0,y:0}; }
+  constructor(canvas, ctx) {
+    this.canvas = canvas; this.ctx = ctx;
+    this.camera = { x:0, y:0, w:canvas.width, h:canvas.height };
+    this.world = { w:canvas.width, h:canvas.height };
+    this._target = { x:0, y:0 };
+    this._smooth = 8; // 摄像机缓动速度系数（越大越快）
+  }
   setWorldSize(w,h){ this.world.w=w; this.world.h=h; }
   cameraFollow(target){
-    // 水平死区跟随：减少频繁微动与延迟感
+    // 计算“目标相机位置”，不直接写入 camera，交由 updateCamera 缓动过去
     const deadLeft = Math.floor(this.canvas.width * 0.35);
     const deadRight = Math.floor(this.canvas.width * 0.35);
     const px = Math.floor(target.x + target.w / 2);
@@ -13,15 +19,30 @@ export class Renderer {
     const rightBound = camX + this.canvas.width - deadRight;
     if (px > rightBound) camX += (px - rightBound);
     else if (px < leftBound) camX -= (leftBound - px);
-    camX = Math.max(0, Math.min(camX, this.world.w - this.canvas.width));
-    this.camera.x = camX;
+    // 边缘缓冲：避免到达世界边界时突跳
+    camX = Math.max(0, Math.min(camX, Math.max(0, this.world.w - this.canvas.width)));
 
-    // 垂直简单跟随（可以再加死区），对齐到整数
+    // 垂直：以目标居中为主（可按需加入垂直死区）
     let camY = Math.floor(target.y + target.h / 2 - this.canvas.height / 2);
-    camY = Math.max(0, Math.min(camY, this.world.h - this.canvas.height));
-    this.camera.y = camY;
+    camY = Math.max(0, Math.min(camY, Math.max(0, this.world.h - this.canvas.height)));
+
+    this._target.x = camX;
+    this._target.y = camY;
   }
-  updateCamera(dt){ /* 死区摄像机已直接更新，无需额外平滑 */ }
+  updateCamera(dt){
+    // 对 camera 进行 LERP 缓动到 target，限制 dt 以避免突变
+    const clamp01 = (v)=> v < 0 ? 0 : (v > 1 ? 1 : v);
+    const lerp = (a,b,t)=> a + (b - a) * t;
+    const safeDt = Math.min(0.05, Math.max(0, dt||0));
+    const t = clamp01(safeDt * (this._smooth || 8));
+
+    const nextX = lerp(this.camera.x, this._target.x, t);
+    const nextY = lerp(this.camera.y, this._target.y, t);
+    const maxX = Math.max(0, this.world.w - this.canvas.width);
+    const maxY = Math.max(0, this.world.h - this.canvas.height);
+    this.camera.x = Math.max(0, Math.min(nextX, maxX));
+    this.camera.y = Math.max(0, Math.min(nextY, maxY));
+  }
   clear(){ this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height); }
   drawBackground(level){ const ctx=this.ctx; const theme = (level?.theme) || (level?.activeRoom==='sub' ? 'underground' : 'sky');
     if (theme === 'castle') { const g=ctx.createLinearGradient(0,0,0,this.canvas.height); g.addColorStop(0,'#1f2937'); g.addColorStop(1,'#111827'); ctx.fillStyle=g; ctx.fillRect(0,0,this.canvas.width,this.canvas.height); }
@@ -41,6 +62,11 @@ export class Renderer {
       } } } }
   drawEntity(ent){
     const {x,y,w,h}=ent; const cx=Math.round(this.camera.x); const cy=Math.round(this.camera.y); const sx=Math.round(x-cx); const sy=Math.round(y-cy); const ctx=this.ctx;
+    // 可见性裁剪（完全离屏直接跳过绘制）；
+    // 对于 w/h 为 0 的复合实体（如 firebar）不做矩形裁剪
+    if (w > 0 && h > 0) {
+      if (sx + w < 0 || sy + h < 0 || sx > this.canvas.width || sy > this.canvas.height) return;
+    }
     if(ent.kind==='player'){ this._drawPlayer(ctx,sx,sy,w,h,ent); }
     else if(ent.kind==='enemy'){ ctx.fillStyle='#8b5e34'; ctx.fillRect(sx,sy,w,h); ctx.strokeStyle='#5b3b1e'; ctx.beginPath(); const t=(ent.animTime||0)*10; ctx.moveTo(sx,sy+h*0.7+Math.sin(t)*2); ctx.lineTo(sx+w,sy+h*0.7+Math.sin(t)*2); ctx.stroke(); }
     else if(ent.kind==='coin'||ent.kind==='reward-coin'){ ctx.fillStyle='#facc15'; ctx.beginPath(); ctx.ellipse(sx+w/2,sy+h/2,w/2,h/2,0,0,Math.PI*2); ctx.fill(); ctx.strokeStyle='#92400e'; ctx.stroke(); }

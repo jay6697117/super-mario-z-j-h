@@ -19,11 +19,16 @@
   - 轻量关卡编辑器、碰撞/计分单元测试、渲染快照（下一阶段）。
 
 ## 下一个迭代目标（本周期执行）
-1. C：实现 Lakitu/Spiny（含生成/投掷），完善 Piranha 近管口不出现逻辑；关卡植入与渲染。
+1. C：实现 Lakitu/Spiny（含生成/投掷），完善 Piranha 近管口不出现逻辑（已接入状态机 + 近距阻塞）；Lakitu 投掷节奏随机 + 同屏 Spiny 上限（默认 3）与投掷范围限制（已接入）；关卡植入与渲染。
 2. D：关卡/实体参数模块化（以 JS 模块形式导出配置），覆盖每关时间、低时限阈值、旗奖励倍率；主循环读取并覆盖关卡参数（已接入时间/低时限/旗奖励）；完善世界结构映射与 HUD 文案来源（已接入）。
+   - 实体参数扩展（已接入）：Lakitu（dropCd/maxSpinyActive/rangeTiles），Piranha（upTime/downTime/holdUp/holdDown/nearTilesX/nearYOffset）；编辑器支持读写以上参数并导入导出。
    - 新增：每关 alertLastSeconds 与 timeBonusPerSecond（已接入）。
    - 本地存档：当前关卡索引与中途旗位置（localStorage，已接入）。
-3. 小型稳定性打磨：子弹/壳对新敌人的交互覆盖；水下与地上行为边界验证；通关后清理下一关 checkpoint。
+3. 小型稳定性打磨：
+   - 摄像机平滑与边缘缓冲（已接入）：cameraFollow 输出目标位，updateCamera 基于 dt LERP 缓动，世界边界 clamp，减少抖动与突跳；
+   - 实体渲染早退（已接入）：在 Renderer.drawEntity 做可见性裁剪（完全离屏不绘制），降低复杂场景下渲染成本；
+   - 子弹/壳对新敌人的交互覆盖；水下与地上行为边界验证；通关后清理下一关 checkpoint。
+   - 编辑器预设（已接入）：地面/地下/水下/城堡一键设置主题与时间阈值。
 4. E：轻量关卡编辑器（已接入，E 键开启/关闭，支持地块与刷怪放置、导出/导入 JSON；刷怪参数可编辑：cannon(dir/period/range/maxActive)、firebar(segments/speed)、lakitu(dropCd)、cheep(dir)、hammer-bro(jumpCd/throwCd)），渲染快照（O 键下载当前画面），最小测试入口（控制台 runTests）。
 
 ## 验收标准
@@ -31,6 +36,9 @@
 - Piranha 在玩家靠近管口时不露头；远离后正常起伏。
 - 每关时间/低时限阈值/旗奖励在配置中可控，HUD 关卡名来自世界结构映射；通关结算逻辑与配置一致。
 - 炮台、Bill、Hammer Bro 与子弹/壳交互覆盖完整，60fps 下稳定。
+- 摄像机：水平方向速度变化无突跳，垂直切换平滑；切关/子房间切换后 300ms 内稳定落位；世界边缘无黑边抖动。
+- 性能：相同实体数量下，渲染平均耗时下降，长帧减少（可用 DevTools 对比 Before/After）。
+ - 测试：控制台 `runTests()` 通过包含 Lakitu/Piranha/子弹/壳/踩踏边界与 1‑3 时限元数据校验。
 
 ## 备注
 - 保持零外部依赖；音频以 WebAudio 合成为主；

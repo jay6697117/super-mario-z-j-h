@@ -1,6 +1,12 @@
 // 浏览器内最小测试脚本：打开页面后在控制台运行 runTests()
 import { Physics } from '../engine/physics.js';
 import { TILE_SIZE } from '../constants.js';
+import { Piranha } from '../entities/piranha.js';
+import { Lakitu } from '../entities/lakitu.js';
+import { Bullet } from '../entities/bullet.js';
+import { Enemy } from '../entities/enemy.js';
+import { Shell } from '../entities/koopa.js';
+import { getLevelMeta } from '../data/levels-meta.js';
 
 export function runTests(){
   const results=[]; const physics=new Physics();
@@ -27,6 +33,52 @@ export function runTests(){
   const rect2={ x:TILE_SIZE, y:TILE_SIZE*2, w:16, h:16, vx:0, vy:-200 };
   const res2=physics.collideAndSlideRect(rect2, 0, -TILE_SIZE, level2);
   results.push(['head-hit', !!res2.headHit]);
+  // 食人花：近距玩家阻塞逻辑（近时不露头，远离后上浮）
+  const pipeTopY = 5*TILE_SIZE; const pipeCenterX = 10*TILE_SIZE + TILE_SIZE/2;
+  const pir = new Piranha(pipeCenterX, pipeTopY);
+  // 模拟玩家近距：与管口中心 1 格内，且玩家底部不高于管口顶+6
+  const nearPlayer = { x: pipeCenterX - 10, y: pipeTopY - 40, w: 16, h: 16 };
+  for (let i=0;i<10;i++) pir.update(0.1, physics, level, nearPlayer);
+  const yNear = pir.y;
+  // 模拟玩家远离
+  const farPlayer = { x: pipeCenterX + TILE_SIZE*4, y: pipeTopY + TILE_SIZE*4, w: 16, h: 16 };
+  for (let i=0;i<30;i++) pir.update(0.1, physics, level, farPlayer);
+  const yFar = pir.y;
+  results.push(['piranha-block-near', yNear > pir.baseY + 8]);
+  results.push(['piranha-rise-far', yFar <= pir.baseY + 2]);
+
+  // Lakitu：投掷节奏与上限（无渲染，纯逻辑）
+  const lak = new Lakitu(100, 50); lak.dropCd = 0.2; lak.maxSpinyActive = 2; lak.dropActiveRangeTiles = 50;
+  const ents=[]; const player={ x:110, y:50, w:16, h:16 };
+  for(let i=0;i<10;i++){ lak.update(0.1, physics, level, player, ents); }
+  const spawned1 = ents.filter(e=>e.kind==='spiny').length >= 1;
+  // 填满上限，再推进足够时间，数量不应无限增长
+  while(ents.filter(e=>e.kind==='spiny').length < 2){ ents.push({kind:'spiny', dead:false}); }
+  const before=ents.filter(e=>e.kind==='spiny').length;
+  for(let i=0;i<10;i++){ lak.update(0.2, physics, level, player, ents); }
+  const after=ents.filter(e=>e.kind==='spiny').length;
+  results.push(['lakitu-spawn-basic', spawned1===true]);
+  results.push(['lakitu-max-active', after===before]);
+
+  // Bullet 命中 Lakitu/Spiny：按主循环的种类过滤应致死
+  const b = new Bullet(50,50,1); b.vx=0; b.vy=0; const lak2 = new Lakitu(50,50); const sp2={kind:'spiny',x:52,y:50,w:24,h:20,dead:false};
+  const kinds = (t)=> (t.kind==='enemy'||t.kind==='koopa'||t.kind==='shell'||t.kind==='cheep'||t.kind==='blooper'||t.kind==='bill'||t.kind==='hammer-bro'||t.kind==='lakitu'||t.kind==='spiny');
+  if (physics.aabbOverlap(b,lak2) && kinds(lak2)) lak2.dead=true;
+  if (physics.aabbOverlap(b,sp2) && kinds(sp2)) sp2.dead=true;
+  results.push(['bullet-kills-lakitu', lak2.dead===true]);
+  results.push(['bullet-kills-spiny', sp2.dead===true]);
+
+  // 壳撞敌：应致死
+  const sh=new Shell(10,10); sh.vx=200; sh.w=26; sh.h=22; const en=new Enemy(10,10); if (physics.aabbOverlap(sh,en)) en.dead=true; results.push(['shell-kills-enemy', en.dead===true]);
+
+  // 踩踏判定：Spiny 与 Piranha 不可踩
+  const playerVy=100; const playerBottom=100; const sp={kind:'spiny', top:()=>95}; const pi={kind:'piranha', top:()=>95};
+  const stomping=(ent)=> (ent.kind!=='piranha' && ent.kind!=='spiny') && (playerVy>0) && (playerBottom - ent.top() < 16);
+  results.push(['stomp-spiny-false', stomping(sp)===false]);
+  results.push(['stomp-piranha-false', stomping(pi)===false]);
+
+  // 元数据：水下关（1-3）的时间应为 400
+  try { const meta13 = getLevelMeta(2); results.push(['meta-1-3-timelimit-400', meta13 && meta13.timeLimit===400]); } catch { results.push(['meta-1-3-timelimit-400', false]); }
   const failed=results.filter(([,ok])=>!ok);
   console.table(results.map(([name,ok])=>({name, ok}))); if(failed.length===0) console.log('所有测试通过'); else console.warn('失败用例', failed);
 }

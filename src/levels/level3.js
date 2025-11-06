@@ -16,5 +16,5 @@ export function createLevel3(){ const rows=18, cols=120; const grid=Array.from({
   // 道具
   const mushAt=[26,62,90]; for(const mx of mushAt) spawns.push({type:'mushroom',x:mx*TILE_SIZE,y:(rows-7)*TILE_SIZE});
   const spawn={x:3*TILE_SIZE,y:(rows-8)*TILE_SIZE}; grid[rows-8][3]='P';
-  return { rows,cols,get(x,y){return grid[y][x];}, set(x,y,ch){grid[y][x]=ch;}, grid, spawn, spawns, timeLimit:300, theme:'water' };
+  return { rows,cols,get(x,y){return grid[y][x];}, set(x,y,ch){grid[y][x]=ch;}, grid, spawn, spawns, timeLimit:400, theme:'water' };
 }
