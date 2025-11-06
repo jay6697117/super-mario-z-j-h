@@ -15,10 +15,10 @@ export class Piranha {
   update(dt, physics, level, player) {
     this.t += dt;
     const phase = (Math.sin((this.t/this.period)*Math.PI*2)+1)/2; // 0~1
-    // 玩家靠近管口则缩回
-    const near = player && Math.abs((this.x+this.w/2) - (player.x+player.w/2)) < TILE_SIZE && (player.y + player.h) < (this.baseY + this.h*0.6);
-    const offset = near ? 22 : 0;
+    // 玩家靠近管口则缩回：横向1格内，且玩家底部不低于管口下缘太多
+    const nearX = player && Math.abs((this.x+this.w/2) - (player.x+player.w/2)) < TILE_SIZE*1.0;
+    const nearY = player && (player.y + player.h) < (this.baseY + this.h*0.8);
+    const offset = (nearX && nearY) ? 26 : 0;
     this.y = this.baseY + (1-phase)*18 + offset;
   }
 }
-
