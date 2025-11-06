@@ -83,23 +83,65 @@ export class Renderer {
       if (sx + w < 0 || sy + h < 0 || sx > this.canvas.width || sy > this.canvas.height) return;
     }
     if(ent.kind==='player'){ this._drawPlayer(ctx,sx,sy,w,h,ent); }
-    else if(ent.kind==='enemy'){ ctx.fillStyle='#8b5e34'; ctx.fillRect(sx,sy,w,h); ctx.strokeStyle='#5b3b1e'; ctx.beginPath(); const t=(ent.animTime||0)*10; ctx.moveTo(sx,sy+h*0.7+Math.sin(t)*2); ctx.lineTo(sx+w,sy+h*0.7+Math.sin(t)*2); ctx.stroke(); }
-    else if(ent.kind==='coin'||ent.kind==='reward-coin'){ ctx.fillStyle='#facc15'; ctx.beginPath(); ctx.ellipse(sx+w/2,sy+h/2,w/2,h/2,0,0,Math.PI*2); ctx.fill(); ctx.strokeStyle='#92400e'; ctx.stroke(); }
-    else if(ent.kind==='mushroom'){ ctx.fillStyle='#16a34a'; ctx.beginPath(); ctx.arc(sx+w/2,sy+h*0.55,w*0.55,Math.PI,0); ctx.fill(); ctx.fillStyle='#fef3c7'; ctx.fillRect(sx+w*0.32,sy+h*0.55,w*0.36,h*0.35); }
-    else if(ent.kind==='flower'){ ctx.fillStyle='#ef4444'; ctx.beginPath(); ctx.arc(sx+w/2, sy+h/2, w*0.45, 0, Math.PI*2); ctx.fill(); ctx.fillStyle='#16a34a'; ctx.fillRect(sx+w*0.45, sy+h*0.55, w*0.1, h*0.4); }
+    else if(ent.kind==='enemy'){ // Goomba 风格
+      const t=(ent.animTime||0)*10; const bob=Math.sin(t*0.4)*1.2;
+      ctx.fillStyle='#8b5e34';
+      ctx.beginPath(); ctx.ellipse(sx+w/2, sy+h*0.62+bob, w*0.48, h*0.42, 0, 0, Math.PI*2); ctx.fill();
+      // 脚
+      ctx.fillStyle='#5b3b1e'; ctx.fillRect(sx+3, sy+h-6, 8, 4); ctx.fillRect(sx+w-11, sy+h-6, 8, 4);
+      // 眼睛
+      ctx.fillStyle='#fff'; ctx.fillRect(sx+w*0.32, sy+h*0.5, 4, 6); ctx.fillRect(sx+w*0.56, sy+h*0.5, 4, 6);
+      ctx.fillStyle='#1f2937'; ctx.fillRect(sx+w*0.34, sy+h*0.53, 2, 3); ctx.fillRect(sx+w*0.58, sy+h*0.53, 2, 3);
+    }
+    else if(ent.kind==='coin'||ent.kind==='reward-coin'){
+      const g=ctx.createRadialGradient(sx+w*0.35,sy+h*0.35,2,sx+w/2,sy+h/2,w/2);
+      g.addColorStop(0,'#fff59e'); g.addColorStop(0.6,'#facc15'); g.addColorStop(1,'#d97706');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.ellipse(sx+w/2,sy+h/2,w/2,h/2,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#fff7'; ctx.fillRect(sx+w*0.28, sy+h*0.25, 6, 2);
+      ctx.strokeStyle='#92400e'; ctx.stroke();
+    }
+    else if(ent.kind==='mushroom'){
+      // 伞帽+白点
+      ctx.fillStyle='#16a34a'; ctx.beginPath(); ctx.arc(sx+w/2,sy+h*0.55,w*0.55,Math.PI,0); ctx.fill();
+      ctx.fillStyle='#fef3c7'; ctx.beginPath(); ctx.arc(sx+w*0.38, sy+h*0.5, 3, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(sx+w*0.62, sy+h*0.5, 3, 0, Math.PI*2); ctx.fill();
+      // 柄
+      ctx.fillStyle='#fef3c7'; ctx.fillRect(sx+w*0.34,sy+h*0.55,w*0.32,h*0.35);
+    }
+    else if(ent.kind==='flower'){
+      // 花瓣+花心+茎叶
+      ctx.fillStyle='#ef4444'; for(let i=0;i<4;i++){ const a=i*Math.PI/2; ctx.beginPath(); ctx.ellipse(sx+w/2+Math.cos(a)*6, sy+h/2+Math.sin(a)*6, w*0.22, h*0.22, 0, 0, Math.PI*2); ctx.fill(); }
+      ctx.fillStyle='#fde047'; ctx.beginPath(); ctx.arc(sx+w/2, sy+h/2, w*0.18, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle='#16a34a'; ctx.fillRect(sx+w*0.47, sy+h*0.55, w*0.06, h*0.4);
+      ctx.beginPath(); ctx.moveTo(sx+w*0.47, sy+h*0.7); ctx.quadraticCurveTo(sx+w*0.3, sy+h*0.65, sx+w*0.25, sy+h*0.78); ctx.lineWidth=3; ctx.strokeStyle='#16a34a'; ctx.stroke();
+    }
     else if(ent.kind==='star'){ ctx.fillStyle='#fcd34d'; ctx.beginPath(); for(let i=0;i<5;i++){ const a=(i*72-90)*Math.PI/180; const r=w/2; const px=sx+w/2+Math.cos(a)*r; const py=sy+h/2+Math.sin(a)*r; if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py); const a2=a+36*Math.PI/180; const r2=r*0.5; ctx.lineTo(sx+w/2+Math.cos(a2)*r2, sy+h/2+Math.sin(a2)*r2);} ctx.closePath(); ctx.fill(); }
-    else if(ent.kind==='piranha'){ ctx.fillStyle='#059669'; ctx.fillRect(sx, sy, w, h); ctx.fillStyle='#064e3b'; ctx.fillRect(sx+4, sy+h-6, w-8, 4); ctx.fillStyle='#ecfeff'; ctx.fillRect(sx+3, sy+4, w-6, 6); }
-    else if(ent.kind==='bullet'){ ctx.fillStyle='#fb923c'; ctx.beginPath(); ctx.arc(sx+w/2,sy+h/2,w/2,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#7c2d12'; ctx.fillRect(sx+w*0.2, sy+h*0.45, w*0.6, 2); }
-    else if(ent.kind==='koopa'||ent.kind==='shell'){ ctx.fillStyle=ent.kind==='shell'?'#16a34a':'#047857'; ctx.fillRect(sx,sy,w,h); ctx.fillStyle='#064e3b'; ctx.fillRect(sx+2, sy+h-6, w-4, 4); }
+    else if(ent.kind==='piranha'){
+      ctx.fillStyle='#10b981'; ctx.beginPath(); ctx.ellipse(sx+w/2, sy+h*0.55, w*0.42, h*0.45, 0, 0, Math.PI*2); ctx.fill();
+      // 嘴与齿
+      ctx.fillStyle='#ecfeff'; ctx.fillRect(sx+w*0.25, sy+h*0.4, w*0.5, 4);
+      ctx.fillStyle='#064e3b'; ctx.fillRect(sx+4, sy+h-6, w-8, 4);
+    }
+    else if(ent.kind==='bullet'){
+      ctx.fillStyle='#111827'; ctx.beginPath(); ctx.ellipse(sx+w/2, sy+h/2, w*0.55, h*0.45, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle='#fff'; ctx.fillRect(sx+w*0.58, sy+h*0.42, 6, 6); ctx.fillStyle='#000'; ctx.fillRect(sx+w*0.6, sy+h*0.45, 3, 3);
+      ctx.fillStyle='#e11d48'; ctx.fillRect(sx+2, sy+3, 6, h-6);
+    }
+    else if(ent.kind==='koopa'||ent.kind==='shell'){
+      // 壳体
+      ctx.fillStyle='#16a34a'; ctx.beginPath(); ctx.ellipse(sx+w/2, sy+h*0.62, w*0.48, h*0.36, 0, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#064e3b'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(sx+4, sy+h*0.62); ctx.lineTo(sx+w-4, sy+h*0.62); ctx.stroke();
+      if (ent.kind==='koopa'){ ctx.fillStyle='#fef3c7'; ctx.fillRect(sx+w*0.42, sy+h*0.35, 6, 8); }
+    }
     else if(ent.kind==='firebar'){ const balls=ent.balls(TILE_SIZE); ctx.fillStyle='#f97316'; for(const b of balls){ const bx=Math.round(b.cx-cx), by=Math.round(b.cy-cy); ctx.beginPath(); ctx.arc(bx,by,b.radius,0,Math.PI*2); ctx.fill(); } }
-    else if(ent.kind==='cheep'){ ctx.fillStyle='#38bdf8'; ctx.fillRect(sx,sy,w,h); ctx.fillStyle='#0ea5e9'; ctx.fillRect(sx+2, sy+h-5, w-4, 3); }
-    else if(ent.kind==='blooper'){ ctx.fillStyle='#93c5fd'; ctx.beginPath(); ctx.ellipse(sx+w/2, sy+h/2, w/2, h/2, 0, 0, Math.PI*2); ctx.fill(); ctx.fillStyle='#1f2937'; ctx.fillRect(sx+w*0.35, sy+h*0.35, 2, 2); ctx.fillRect(sx+w*0.55, sy+h*0.35, 2, 2); }
-    else if(ent.kind==='bill'){ ctx.fillStyle='#111827'; ctx.fillRect(sx, sy, w, h); ctx.fillStyle='#e11d48'; ctx.fillRect(sx+2, sy+3, 6, h-6); }
+    else if(ent.kind==='cheep'){ ctx.fillStyle='#38bdf8'; ctx.beginPath(); ctx.ellipse(sx+w*0.5, sy+h*0.55, w*0.45, h*0.35, 0, 0, Math.PI*2); ctx.fill(); ctx.fillStyle='#0ea5e9'; ctx.beginPath(); ctx.moveTo(sx+4, sy+h*0.55); ctx.lineTo(sx-2, sy+h*0.45); ctx.lineTo(sx-2, sy+h*0.65); ctx.closePath(); ctx.fill(); ctx.fillStyle='#fff'; ctx.fillRect(sx+w*0.6, sy+h*0.48, 4, 4); ctx.fillStyle='#000'; ctx.fillRect(sx+w*0.62, sy+h*0.5, 2, 2); }
+    else if(ent.kind==='blooper'){ ctx.fillStyle='#93c5fd'; ctx.beginPath(); ctx.ellipse(sx+w/2, sy+h*0.45, w*0.4, h*0.35, 0, 0, Math.PI*2); ctx.fill(); ctx.fillStyle='#93c5fd'; ctx.fillRect(sx+w*0.35, sy+h*0.6, w*0.1, h*0.2); ctx.fillRect(sx+w*0.55, sy+h*0.6, w*0.1, h*0.2); ctx.fillStyle='#1f2937'; ctx.fillRect(sx+w*0.42, sy+h*0.45, 2, 2); ctx.fillRect(sx+w*0.56, sy+h*0.45, 2, 2); }
+    else if(ent.kind==='bill'){ ctx.fillStyle='#111827'; ctx.beginPath(); ctx.ellipse(sx+w/2, sy+h/2, w*0.5, h*0.45, 0, 0, Math.PI*2); ctx.fill(); ctx.fillStyle='#fff'; ctx.fillRect(sx+w*0.6, sy+h*0.45, 5, 5); ctx.fillStyle='#000'; ctx.fillRect(sx+w*0.62, sy+h*0.47, 2, 2); }
     else if(ent.kind==='cannon'){ ctx.fillStyle='#334155'; ctx.fillRect(sx, sy, w, h); ctx.fillStyle='#111827'; ctx.fillRect(sx+ (ent.dir<0? 2: w-8), sy+8, 6, h-16); }
-    else if(ent.kind==='lakitu'){ ctx.fillStyle='#fef3c7'; ctx.fillRect(sx, sy, w, h); ctx.fillStyle='#22c55e'; ctx.fillRect(sx+2, sy+h-4, w-4, 4); }
-    else if(ent.kind==='spiny'){ ctx.fillStyle='#ef4444'; ctx.fillRect(sx, sy, w, h); ctx.fillStyle='#7f1d1d'; ctx.fillRect(sx+3, sy+h-5, w-6, 3); }
-    else if(ent.kind==='hammer-bro'){ ctx.fillStyle='#f59e0b'; ctx.fillRect(sx, sy, w, h); ctx.fillStyle='#78350f'; ctx.fillRect(sx+4, sy+h-6, w-8, 4); }
-    else if(ent.kind==='hammer'){ ctx.fillStyle='#9ca3af'; ctx.fillRect(sx, sy, w, h); }
+    else if(ent.kind==='lakitu'){ // 云+小人
+      ctx.fillStyle='#fff'; this._cloud(sx+12, sy+8); ctx.fillStyle='#fef3c7'; ctx.fillRect(sx+4, sy+2, w-8, h-12); ctx.fillStyle='#22c55e'; ctx.fillRect(sx+6, sy+h-6, w-12, 4); }
+    else if(ent.kind==='spiny'){ ctx.fillStyle='#ef4444'; ctx.beginPath(); ctx.ellipse(sx+w/2, sy+h*0.6, w*0.45, h*0.32, 0, 0, Math.PI*2); ctx.fill(); ctx.fillStyle='#fff'; for(let i=0;i<5;i++){ const px=sx+4+i*(w-8)/4; ctx.beginPath(); ctx.moveTo(px, sy+h*0.45); ctx.lineTo(px+3, sy+h*0.53); ctx.lineTo(px-3, sy+h*0.53); ctx.closePath(); ctx.fill(); } }
+    else if(ent.kind==='hammer-bro'){ ctx.fillStyle='#84cc16'; ctx.fillRect(sx+4, sy+2, w-8, h-10); ctx.fillStyle='#f59e0b'; ctx.fillRect(sx, sy+h-8, w, 8); }
+    else if(ent.kind==='hammer'){ ctx.fillStyle='#9ca3af'; ctx.fillRect(sx+6, sy+2, 6, h-4); ctx.fillStyle='#4b5563'; ctx.fillRect(sx, sy+4, 10, 6); }
     else if(ent.kind==='platform'){ ctx.fillStyle='#94a3b8'; ctx.fillRect(sx, sy, w, h); ctx.fillStyle='#11182722'; ctx.fillRect(sx, sy, w, 3); }
     else if(ent.kind==='flame-spout'){ const r=ent.rect?.(); if(r){ const rx=Math.round(r.x- this.camera.x), ry=Math.round(r.y- this.camera.y); ctx.fillStyle='#ef4444'; ctx.fillRect(rx,ry,r.w,r.h); ctx.fillStyle='#fde68a'; ctx.fillRect(rx,ry,Math.max(2,Math.round(r.w*0.5)),Math.max(2,Math.round(r.h*0.5))); } }
   }

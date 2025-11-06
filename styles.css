@@ -5,10 +5,10 @@ body {
   color: #e2e8f0;
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Inter, Roboto, Arial, sans-serif;
 }
-.wrap { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 0 24px; }
-canvas#game { display: block; image-rendering: pixelated; background: linear-gradient(#86c5ff, #bfe6ff); border: 2px solid #334155; border-radius: 8px; }
-.hud { display: flex; gap: 16px; font-size: 14px; user-select: none; }
-.help { font-size: 12px; color: #94a3b8; }
+.wrap { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px 0 24px; }
+canvas#game { display: block; image-rendering: pixelated; background: linear-gradient(#86c5ff, #bfe6ff); border: 2px solid #334155; border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.28); }
+.hud { display: flex; flex-wrap: wrap; gap: 16px 22px; font-size: 14px; user-select: none; width: 100%; max-width: 960px; justify-content: center; }
+.help { font-size: 12px; color: #94a3b8; max-width: 960px; text-align: center; line-height: 1.6; padding: 2px 8px; }
 .banner { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; font-size: 32px; font-weight: 700; color: #0f172a; background: rgba(226,232,240,.85); border-radius: 8px; pointer-events: none; }
 
 .touch-controls { position: fixed; left: 0; right: 0; bottom: 12px; display: flex; justify-content: center; gap: 16px; pointer-events: none; }
@@ -21,7 +21,7 @@ canvas#game { display: block; image-rendering: pixelated; background: linear-gra
 @keyframes hudPulse { 0% { transform: none; } 50% { transform: scale(1.02); } 100% { transform: none; } }
 
 /* 编辑器面板 */
-.editor-panel { position: fixed; left: 12px; top: 12px; background: rgba(15,23,42,.9); color: #e2e8f0; padding: 8px 10px; border: 1px solid #334155; border-radius: 6px; z-index: 20; font-size: 13px; user-select: none; }
+.editor-panel { position: fixed; left: 12px; top: 12px; background: rgba(15,23,42,.9); color: #e2e8f0; padding: 8px 10px; border: 1px solid #334155; border-radius: 6px; z-index: 20; font-size: 13px; user-select: none; max-width: min(96vw, 960px); }
 .editor-toolbar { display: flex; gap: 8px; align-items: center; }
 .editor-toolbar .title { font-weight: 700; margin-right: 6px; }
 .editor-panel select, .editor-panel button { background: #0f172a; color: #e2e8f0; border: 1px solid #334155; border-radius: 4px; padding: 2px 6px; }
