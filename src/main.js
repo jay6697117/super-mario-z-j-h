@@ -31,6 +31,7 @@ import { Lakitu } from './entities/lakitu.js';
 import { Spiny } from './entities/spiny.js';
 import { GameUI } from './engine/ui.js';
 import { LevelEditor } from './tools/editor.js';
+import { runTests } from './tools/tests.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -42,6 +43,8 @@ const banner = document.getElementById('banner');
 const hudRoot = document.getElementById('hud');
 
 const GameState = { Playing: 'playing', Paused: 'paused', Win: 'win', Lose: 'lose' };
+// 暴露测试入口
+try { window.runTests = runTests; } catch {}
 const game = { state: GameState.Playing, level:null, input:new Input(), renderer:new Renderer(canvas, ctx), physics:new Physics(), particles:new Particles(), player:null, entities:[], score:0, coins:0, lives:Infinity, resetRequested:false, currentLevelIndex:0, lastShotAt:0, time:300, timeMax:300, lastTimeSec:null, winStage:null, flagBonus:0, ui:new GameUI(ctx), lowTimeThreshold: GAME_CONFIG.lowTimeThreshold, alertLastSeconds: GAME_CONFIG.alertLastSeconds, timeBonusPerSecond: GAME_CONFIG.timeBonusPerSecond, editor:null };
 
 function getLevelByIndex(i){ if(i===0) return createLevel1(); if(i===1) return createLevel2(); if(i===2) return createLevel3(); if(i===3) return createLevel4(); return createLevel1(); }
