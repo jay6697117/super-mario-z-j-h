@@ -140,8 +140,9 @@ function step(dt){
   for (const ent of entities) { if (ent.kind==='platform' && typeof ent.update==='function') ent.update(dt); }
   player.update(dt, input, physics, level);
   if ((game.level && game.level.theme) !== 'water' && !input.jump && player.vy < -120) player.vy *= 0.7;
-  if (!wasGrounded && player.grounded) game.particles.spark(player.x + player.w/2, player.y + player.h, '#cbd5e1', 6);
-  if (Math.abs(prevVx) > 150 && Math.sign(prevVx) !== Math.sign(player.vx) && player.grounded) game.particles.spark(player.x + player.w/2, player.y + player.h, '#94a3b8', 8);
+  if (!wasGrounded && player.grounded) { game.particles.spark(player.x + player.w/2, player.y + player.h, '#cbd5e1', 6); game.particles.dust(player.x + player.w/2, player.y + player.h, '#e5e7eb', 10); }
+  if (Math.abs(prevVx) > 150 && Math.sign(prevVx) !== Math.sign(player.vx) && player.grounded) game.particles.dust(player.x + player.w/2, player.y + player.h, '#d1d5db', 10);
+  if (Math.abs(prevVx) < 20 && Math.abs(player.vx) > 80 && player.grounded) game.particles.dust(player.x + player.w/2, player.y + player.h, '#e5e7eb', 8);
 
   // 计时与HUD
   game.time -= dt;

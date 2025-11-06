@@ -11,6 +11,13 @@ export class Particles {
       this.items.push({type:'rect',x,y,vx:(Math.random()-0.5)*260,vy:(Math.random()-0.8)*260,life:0.25+Math.random()*0.2,ttl:0.25+Math.random()*0.2,color});
     }
   }
+  // 细灰尘：起跑/落地的小型尘土，向上缓慢飘散
+  dust(x,y,color='#cbd5e1',count=8){
+    for(let i=0;i<count;i++){
+      const vx=(Math.random()-0.5)*120; const vy=(-40 - Math.random()*120);
+      this.items.push({type:'rect',x,y,vx,vy,life:0.35+Math.random()*0.25,ttl:0.6,color});
+    }
+  }
   text(x,y,content,color='#ffffff',life=0.9){
     this.items.push({type:'text',x,y,vx:0,vy:-60,life,ttl:life,color,text:content});
   }

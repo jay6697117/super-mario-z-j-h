@@ -50,6 +50,7 @@ export class Renderer {
     const maxY = Math.max(0, this.world.h - this.canvas.height);
     this.camera.x = Math.max(0, Math.min(nextX, maxX));
     this.camera.y = Math.max(0, Math.min(nextY, maxY));
+    this._tick = (this._tick || 0) + (dt || 0);
   }
   clear(){ this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height); }
   drawBackground(level){ const ctx=this.ctx; const theme = (level?.theme) || (level?.activeRoom==='sub' ? 'underground' : 'sky');
@@ -66,7 +67,18 @@ export class Renderer {
     else { /* sky */ }
     if (theme === 'sky') { const cx=Math.round(this.camera.x); const cy=Math.round(this.camera.y); ctx.save(); ctx.translate(Math.round(-cx*0.2),Math.round(-cy*0.2)); ctx.fillStyle='#ffffff80'; for(let i=0;i<6;i++){ const x=200+i*300; const y=100+(i%3)*40; this._cloud(x,y);} ctx.restore(); ctx.save(); ctx.translate(Math.round(-cx*0.4),Math.round(-cy*0.1)); ctx.fillStyle='#7fbf5b'; for(let i=0;i<8;i++){ const x=100+i*400; const y=this.canvas.height-80; this._hill(x,y);} ctx.restore(); }
   }
-  drawLevel(level){ const ctx=this.ctx; const c=this.camera; const cx=Math.round(c.x); const cy=Math.round(c.y); const startCol=Math.floor(cx/TILE_SIZE); const endCol=Math.min(level.cols-1,Math.floor((cx+c.w)/TILE_SIZE)); const startRow=Math.floor(cy/TILE_SIZE); const endRow=Math.min(level.rows-1,Math.floor((cy+c.h)/TILE_SIZE)); for(let r=startRow;r<=endRow;r++){ for(let col=startCol; col<=endCol; col++){ const t=level.get(col,r); if(t==='-') continue; const x=col*TILE_SIZE-cx; const y=r*TILE_SIZE-cy; const rx=Math.round(x), ry=Math.round(y); if(t==='#'||t==='B'||t==='N'){ ctx.fillStyle=t==='#'?'#7c4f1d':'#a16207'; ctx.fillRect(rx,ry,TILE_SIZE,TILE_SIZE); ctx.strokeStyle='#00000033'; ctx.lineWidth=2; ctx.strokeRect(rx+1,ry+1,TILE_SIZE-2,TILE_SIZE-2); if(t==='N'){ ctx.fillStyle='#eab30822'; ctx.fillRect(rx+6,ry+6,TILE_SIZE-12,TILE_SIZE-12);} } else if (t==='F'){ ctx.fillStyle='#14532d'; ctx.fillRect(Math.round(x + TILE_SIZE*0.45), Math.round(y - TILE_SIZE*3), 4, TILE_SIZE*4); ctx.fillStyle='#16a34a'; ctx.beginPath(); ctx.moveTo(Math.round(x + TILE_SIZE*0.45 + 4), Math.round(y - TILE_SIZE*3)); ctx.lineTo(Math.round(x + TILE_SIZE*0.45 + 4 + 24), Math.round(y - TILE_SIZE*3 + 12)); ctx.lineTo(Math.round(x + TILE_SIZE*0.45 + 4), Math.round(y - TILE_SIZE*3 + 24)); ctx.closePath(); ctx.fill(); } else if (t==='Q' || t==='M'){ ctx.fillStyle= t==='Q' ? '#f59e0b' : '#fbbf24'; ctx.fillRect(rx,ry,TILE_SIZE,TILE_SIZE); ctx.strokeStyle='#78350f'; ctx.strokeRect(rx+1,ry+1,TILE_SIZE-2,TILE_SIZE-2); ctx.fillStyle='#78350f'; ctx.font='bold 18px sans-serif'; ctx.fillText('?',rx+10,ry+22);} else if (t==='V'){ ctx.fillStyle='#16a34a'; ctx.fillRect(rx,ry,TILE_SIZE,TILE_SIZE); ctx.fillStyle='#15803d'; ctx.fillRect(rx,ry,TILE_SIZE,8); ctx.fillRect(rx+4,ry+8,TILE_SIZE-8,TILE_SIZE-8);} else if (t==='X'){ ctx.fillStyle='#15803d'; ctx.fillRect(rx,ry,TILE_SIZE,TILE_SIZE); ctx.fillStyle='#16a34a'; ctx.fillRect(rx+4,ry+4,TILE_SIZE-8,TILE_SIZE-8);} else if (t==='A'){ // 斧头
+  drawLevel(level){ const ctx=this.ctx; const c=this.camera; const cx=Math.round(c.x); const cy=Math.round(c.y); const startCol=Math.floor(cx/TILE_SIZE); const endCol=Math.min(level.cols-1,Math.floor((cx+c.w)/TILE_SIZE)); const startRow=Math.floor(cy/TILE_SIZE); const endRow=Math.min(level.rows-1,Math.floor((cy+c.h)/TILE_SIZE)); for(let r=startRow;r<=endRow;r++){ for(let col=startCol; col<=endCol; col++){ const t=level.get(col,r); if(t==='-') continue; const x=col*TILE_SIZE-cx; const y=r*TILE_SIZE-cy; const rx=Math.round(x), ry=Math.round(y); if(t==='#'||t==='B'||t==='N'){ ctx.fillStyle=t==='#'?'#7c4f1d':'#a16207'; ctx.fillRect(rx,ry,TILE_SIZE,TILE_SIZE); ctx.strokeStyle='#00000033'; ctx.lineWidth=2; ctx.strokeRect(rx+1,ry+1,TILE_SIZE-2,TILE_SIZE-2); if(t==='N'){ ctx.fillStyle='#eab30822'; ctx.fillRect(rx+6,ry+6,TILE_SIZE-12,TILE_SIZE-12);} } else if (t==='F'){ // 旗杆与旗帜飘动
+        const poleX = Math.round(x + TILE_SIZE*0.45), poleTop = Math.round(y - TILE_SIZE*3);
+        ctx.fillStyle='#14532d'; ctx.fillRect(poleX, poleTop, 4, TILE_SIZE*4);
+        const wave = Math.sin((this._tick||0)*2 + col*0.3) * 3;
+        ctx.fillStyle='#16a34a'; ctx.beginPath(); ctx.moveTo(poleX+4, poleTop); ctx.lineTo(poleX+4+24+wave, poleTop+12); ctx.lineTo(poleX+4, poleTop+24); ctx.closePath(); ctx.fill();
+      } else if (t==='Q' || t==='M'){ ctx.fillStyle= t==='Q' ? '#f59e0b' : '#fbbf24'; ctx.fillRect(rx,ry,TILE_SIZE,TILE_SIZE); ctx.strokeStyle='#78350f'; ctx.strokeRect(rx+1,ry+1,TILE_SIZE-2,TILE_SIZE-2); ctx.fillStyle='#78350f'; ctx.font='bold 18px sans-serif'; ctx.fillText('?',rx+10,ry+22);} else if (t==='V'){ // 入口管道（渐变+内阴影）
+        const g=ctx.createLinearGradient(rx,ry,rx,ry+TILE_SIZE); g.addColorStop(0,'#38a169'); g.addColorStop(1,'#166534'); ctx.fillStyle=g; ctx.fillRect(rx,ry,TILE_SIZE,TILE_SIZE);
+        ctx.fillStyle='#15803d'; ctx.fillRect(rx,ry, TILE_SIZE, 8); ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.fillRect(rx+4,ry+8,TILE_SIZE-8,4);
+      } else if (t==='X'){ // 出口管道（渐变+上沿暗影）
+        const g2=ctx.createLinearGradient(rx,ry,rx,ry+TILE_SIZE); g2.addColorStop(0,'#166534'); g2.addColorStop(1,'#16a34a'); ctx.fillStyle=g2; ctx.fillRect(rx,ry,TILE_SIZE,TILE_SIZE);
+        ctx.fillStyle='#16a34a'; ctx.fillRect(rx+4,ry+4,TILE_SIZE-8,TILE_SIZE-8); ctx.fillStyle='rgba(0,0,0,0.12)'; ctx.fillRect(rx+4,ry+4,TILE_SIZE-8,4);
+      } else if (t==='A'){ // 斧头
         ctx.fillStyle='#ef4444'; ctx.beginPath(); ctx.arc(rx+TILE_SIZE/2, ry+TILE_SIZE/2, 10, 0, Math.PI*2); ctx.fill(); ctx.fillStyle='#1f2937'; ctx.fillRect(rx+TILE_SIZE/2-2, ry+2, 4, TILE_SIZE-4);
       } else if (t==='K') { // checkpoint flag tile
         ctx.fillStyle='#f43f5e'; ctx.fillRect(rx+TILE_SIZE*0.45, ry-12, 4, TILE_SIZE+12);
@@ -152,6 +164,8 @@ export class Renderer {
     const pose = ent.pose || 'idle';
     // 身体倾斜与偏移
     let ox=0, oy=0; if(pose==='start') ox = ent.facing>=0 ? 2 : -2; else if (pose==='brake') ox = ent.facing>=0 ? -2 : 2; else if (pose==='hurt') oy = -1;
+    // 地面阴影
+    if (ent.grounded) { ctx.save(); ctx.globalAlpha=0.25; ctx.fillStyle='#000'; ctx.beginPath(); ctx.ellipse(Math.round(sx+w/2), Math.round(sy+h-2), Math.max(6,w*0.35), 3, 0, 0, Math.PI*2); ctx.fill(); ctx.restore(); }
     // 身体
     ctx.fillStyle='#dc2626'; ctx.fillRect(Math.round(sx+2+ox), Math.round(sy+headH+oy), w-4, bodyH-4);
     // 头部
