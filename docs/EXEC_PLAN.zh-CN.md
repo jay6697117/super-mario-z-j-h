@@ -24,7 +24,7 @@
    - 新增：每关 alertLastSeconds 与 timeBonusPerSecond（已接入）。
    - 本地存档：当前关卡索引与中途旗位置（localStorage，已接入）。
 3. 小型稳定性打磨：子弹/壳对新敌人的交互覆盖；水下与地上行为边界验证；通关后清理下一关 checkpoint。
-4. E：轻量关卡编辑器（已接入，E 键开启/关闭，支持地块与刷怪放置、导出/导入 JSON；刷怪参数可编辑：cannon(dir/period)、firebar(segments/speed)），渲染快照（O 键下载当前画面），最小测试入口（控制台 runTests）。
+4. E：轻量关卡编辑器（已接入，E 键开启/关闭，支持地块与刷怪放置、导出/导入 JSON；刷怪参数可编辑：cannon(dir/period/range/maxActive)、firebar(segments/speed)、lakitu(dropCd)、cheep(dir)、hammer-bro(jumpCd/throwCd)），渲染快照（O 键下载当前画面），最小测试入口（控制台 runTests）。
 
 ## 验收标准
 - Lakitu/Spiny 行为稳定：Lakitu 会在玩家上方飘移并周期抛出 Spiny；Spiny 地面巡逻且不可踩。

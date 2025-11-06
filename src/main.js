@@ -73,9 +73,9 @@ function loadLevel(){
     if(e.type==='firebar') game.entities.push(new FireBar(e.x, e.y, e.segments, e.speed));
     if(e.type==='cheep') game.entities.push(new Cheep(e.x,e.y,e.dir||-1));
     if(e.type==='blooper') game.entities.push(new Blooper(e.x,e.y));
-    if(e.type==='cannon') game.entities.push(new Cannon(e.x,e.y,e.dir||-1,e.period||2.2));
-    if(e.type==='hammer-bro') game.entities.push(new HammerBro(e.x,e.y));
-    if(e.type==='lakitu') game.entities.push(new Lakitu(e.x,e.y));
+    if(e.type==='cannon') { const c=new Cannon(e.x,e.y,e.dir??-1,e.period??2.2); if(e.range!=null) c.range=e.range; if(e.maxActive!=null) c.maxActive=e.maxActive; game.entities.push(c);} 
+    if(e.type==='hammer-bro') { const h=new HammerBro(e.x,e.y); if(e.jumpCd!=null) h.jumpCd=e.jumpCd; if(e.throwCd!=null) h.throwCd=e.throwCd; game.entities.push(h);} 
+    if(e.type==='lakitu') { const l=new Lakitu(e.x,e.y); if(e.dropCd!=null) l.dropCd=e.dropCd; game.entities.push(l);} 
     if(e.type==='spiny') game.entities.push(new Spiny(e.x,e.y));
   }
   game.renderer.setWorldSize(level.cols*TILE_SIZE, level.rows*TILE_SIZE);
@@ -84,11 +84,11 @@ function loadLevel(){
   game.score=0; game.coins=0; game.lives=Infinity; game.resetRequested=false; game.winStage=null;
   hudLevel.textContent = WORLD_MAP[game.currentLevelIndex]||'1-1';
   const __meta = getLevelMeta?.(game.currentLevelIndex);
-  const __tl = (__meta && __meta.timeLimit)!=null? __meta.timeLimit : (level.timeLimit||300);
+  const __tl = (level.timeLimit!=null) ? level.timeLimit : ((__meta && __meta.timeLimit)!=null? __meta.timeLimit : 300);
   game.time=game.timeMax=__tl;
-  game.lowTimeThreshold = (__meta && __meta.lowTimeThreshold)!=null ? __meta.lowTimeThreshold : GAME_CONFIG.lowTimeThreshold;
-  game.alertLastSeconds = (__meta && __meta.alertLastSeconds)!=null ? __meta.alertLastSeconds : GAME_CONFIG.alertLastSeconds;
-  game.timeBonusPerSecond = (__meta && __meta.timeBonusPerSecond)!=null ? __meta.timeBonusPerSecond : GAME_CONFIG.timeBonusPerSecond;
+  game.lowTimeThreshold = (level.lowTimeThreshold!=null) ? level.lowTimeThreshold : ((__meta && __meta.lowTimeThreshold)!=null ? __meta.lowTimeThreshold : GAME_CONFIG.lowTimeThreshold);
+  game.alertLastSeconds = (level.alertLastSeconds!=null) ? level.alertLastSeconds : ((__meta && __meta.alertLastSeconds)!=null ? __meta.alertLastSeconds : GAME_CONFIG.alertLastSeconds);
+  game.timeBonusPerSecond = (level.timeBonusPerSecond!=null) ? level.timeBonusPerSecond : ((__meta && __meta.timeBonusPerSecond)!=null ? __meta.timeBonusPerSecond : GAME_CONFIG.timeBonusPerSecond);
   game.lastTimeSec=Math.ceil(game.time);
   updateHUD(); hideBanner(); sfx.musicStart();
 }
@@ -232,7 +232,7 @@ function step(dt){
   // 旗杆演出与推进
   const flagTile = physics.rectFindTile(player, level, (t)=>t==='F');
   if (flagTile) {
-    if (!game.winStage) { game.state = GameState.Win; game.winStage = 'slide'; const poleTop=(flagTile.y*TILE_SIZE)-3*TILE_SIZE; const poleBottom=(flagTile.y*TILE_SIZE)+TILE_SIZE; const touchY=Math.min(Math.max(player.y+player.h/2, poleTop), poleBottom); const ratio=1-(touchY-poleTop)/(poleBottom-poleTop); const __meta = getLevelMeta?.(game.currentLevelIndex); const tiers = (__meta && __meta.flagBonus) || [100,400,800,2000,5000]; game.flagBonus = (ratio>0.9?tiers[4]: ratio>0.7?tiers[3]: ratio>0.5?tiers[2]: ratio>0.3?tiers[1]: tiers[0]); player.x = flagTile.x*TILE_SIZE + TILE_SIZE*0.45 - player.w/2; player.vx=0; player.vy=0; game._flagBottom=(flagTile.y*TILE_SIZE)+TILE_SIZE - player.h - 2; }
+    if (!game.winStage) { game.state = GameState.Win; game.winStage = 'slide'; const poleTop=(flagTile.y*TILE_SIZE)-3*TILE_SIZE; const poleBottom=(flagTile.y*TILE_SIZE)+TILE_SIZE; const touchY=Math.min(Math.max(player.y+player.h/2, poleTop), poleBottom); const ratio=1-(touchY-poleTop)/(poleBottom-poleTop); const __meta = getLevelMeta?.(game.currentLevelIndex); const tiers = (level.flagBonus)||((__meta && __meta.flagBonus) || [100,400,800,2000,5000]); game.flagBonus = (ratio>0.9?tiers[4]: ratio>0.7?tiers[3]: ratio>0.5?tiers[2]: ratio>0.3?tiers[1]: tiers[0]); player.x = flagTile.x*TILE_SIZE + TILE_SIZE*0.45 - player.w/2; player.vx=0; player.vy=0; game._flagBottom=(flagTile.y*TILE_SIZE)+TILE_SIZE - player.h - 2; }
     if (game.winStage === 'slide') { if (player.y < game._flagBottom) { player.y = Math.min(game._flagBottom, player.y + GAME_CONFIG.flagSlideSpeed*dt); player.pose='slide'; } else game.winStage = 'count'; }
     else if (game.winStage === 'count') {
       if (game.time > 0) {

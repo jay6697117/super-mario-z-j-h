@@ -1,5 +1,6 @@
 // 浏览器内最小测试脚本：打开页面后在控制台运行 runTests()
 import { Physics } from '../engine/physics.js';
+import { TILE_SIZE } from '../constants.js';
 
 export function runTests(){
   const results=[]; const physics=new Physics();
@@ -17,9 +18,15 @@ export function runTests(){
   const rows=6, cols=10; const grid=Array.from({length:rows},()=>Array(cols).fill('-'));
   for(let x=0;x<cols;x++){ grid[rows-1][x]='#'; }
   const level={ rows, cols, get(x,y){ if(x<0||y<0||x>=cols||y>=rows) return '#'; return grid[y][x]; } };
-  const rect={ x: 32, y: 32, w: 16, h: 16, vx:0, vy:200 };
-  const res=physics.collideAndSlideRect(rect, 0, 100, level);
+  const rect={ x: TILE_SIZE, y: TILE_SIZE, w: 16, h: 16, vx:0, vy:200 };
+  const res=physics.collideAndSlideRect(rect, 0, TILE_SIZE*3, level);
   results.push(['slide-ground', res.onGround===true]);
+  // 头顶撞击：在头上一格放置方块，向上移动应返回 headHit
+  const grid2=Array.from({length:rows},()=>Array(cols).fill('-')); grid2[1][1]='#';
+  const level2={ rows, cols, get(x,y){ if(x<0||y<0||x>=cols||y>=rows) return '#'; return grid2[y][x]; } };
+  const rect2={ x:TILE_SIZE, y:TILE_SIZE*2, w:16, h:16, vx:0, vy:-200 };
+  const res2=physics.collideAndSlideRect(rect2, 0, -TILE_SIZE, level2);
+  results.push(['head-hit', !!res2.headHit]);
   const failed=results.filter(([,ok])=>!ok);
   console.table(results.map(([name,ok])=>({name, ok}))); if(failed.length===0) console.log('所有测试通过'); else console.warn('失败用例', failed);
 }
