@@ -1,9 +1,15 @@
 export class Particles {
   constructor(){ this.items=[]; }
-  burstRect(x,y,w,h,color='#eab308',count=8,speed=220){
+  // size: 单个粒子的像素尺寸（边长），默认 3
+  burstRect(x,y,w,h,color='#eab308',count=8,speed=220,size=3){
+    const cx = x + w/2, cy = y + h/2;
     for(let i=0;i<count;i++){
-      const ang=(Math.PI*2*i)/count; const vx=Math.cos(ang)*(speed*(0.6+Math.random()*0.6)); const vy=Math.sin(ang)*(speed*(0.6+Math.random()*0.6));
-      this.items.push({type:'rect',x:x+w/2,y:y+h/2,vx,vy:vy-120,life:0.5,ttl:0.5,color});
+      const ang = (Math.PI*2*i)/count + Math.random()*0.6; // 角度抖动
+      const mag = speed*(0.6+Math.random()*0.6);
+      const vx = Math.cos(ang)*mag;
+      const vy = Math.sin(ang)*mag - 120;
+      const s = Math.max(2, Math.round(size + (Math.random()-0.5)*size*0.3));
+      this.items.push({type:'rect',x:cx,y:cy,vx,vy,life:0.5,ttl:0.5,color,w:s,h:s});
     }
   }
   spark(x,y,color='#f59e0b',count=10){

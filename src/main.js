@@ -106,11 +106,11 @@ function loadLevel(){
   sfx.musicStart();
 }
 function updateHUD(){
-  const addBump=(el)=>{ try{ el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }catch{} };
+  const addFX=(el)=>{ try{ el.classList.remove('bump'); el.classList.remove('flip'); void el.offsetWidth; el.classList.add('bump'); el.classList.add('flip'); }catch{} };
   if (hudScore){ const prev=game._hudPrevScore; const v=String(game.score); hudScore.textContent=v; if(prev!==undefined && prev!=v) addBump(hudScore); game._hudPrevScore=v; }
-  if (hudCoins){ const prev=game._hudPrevCoins; const v=String(game.coins); hudCoins.textContent=v; if(prev!==undefined && prev!=v) addBump(hudCoins); game._hudPrevCoins=v; }
-  if (hudLives){ const prev=game._hudPrevLives; const v=(game.lives===Infinity?'∞':String(Math.max(0, game.lives))); hudLives.textContent=v; if(prev!==undefined && prev!=v) addBump(hudLives); game._hudPrevLives=v; }
-  const tNode=document.getElementById('time'); if(tNode){ const v=String(Math.max(0, Math.ceil(game.time))); if (tNode.textContent!==v){ tNode.textContent=v; addBump(tNode); } }
+  if (hudCoins){ const prev=game._hudPrevCoins; const v=String(game.coins); hudCoins.textContent=v; if(prev!==undefined && prev!=v) addFX(hudCoins); game._hudPrevCoins=v; }
+  if (hudLives){ const prev=game._hudPrevLives; const v=(game.lives===Infinity?'∞':String(Math.max(0, game.lives))); hudLives.textContent=v; if(prev!==undefined && prev!=v) addFX(hudLives); game._hudPrevLives=v; }
+  const tNode=document.getElementById('time'); if(tNode){ const v=String(Math.max(0, Math.ceil(game.time))); if (tNode.textContent!==v){ tNode.textContent=v; addFX(tNode); } }
 }
 function showBanner(text){ banner.textContent=text; banner.style.display='flex'; }
 function hideBanner(){ banner.style.display='none'; }
@@ -345,16 +345,28 @@ function step(dt){
       if (game._fwRemain>0 && game._fwTimer<=0) {
         // 抖动节奏：0.24~0.5s 随机间隔，数量逐渐靠近0
         game._fwTimer = 0.24 + Math.random()*0.26; game._fwRemain--;
-        const baseX = (game._flagX||player.x) + 80, baseY = Math.max(40, player.y - 140);
-        const fx = baseX + (Math.random()*200-20);
-        const fy = baseY - Math.random()*60;
+        const flagX = (game._flagX||player.x);
+        // 三个分层簇：左/中/右（相对旗杆位置）
+        const cluster = Math.floor(Math.random()*3); // 0 L 1 C 2 R
+        const clusterOff = cluster===0? 40 : (cluster===1? 140 : 220);
+        const baseX = flagX + clusterOff;
+        const baseY = Math.max(40, player.y - 140);
+        // 远近深度：影响尺寸与速度
+        const depth = [0.7, 0.9, 1.1][Math.floor(Math.random()*3)];
+        const size = Math.max(2, Math.round(3*depth));
+        const speed = 220 + Math.round((depth-0.7)*180);
+        const fx = baseX + (Math.random()*40-20);
+        const fy = baseY - Math.random()*60 - (cluster===1? 0 : (cluster===2? 8: -6));
         const hue = Math.random()<0.5? '#fcd34d' : (Math.random()<0.5? '#fb7185':'#60a5fa');
-        game.particles.burstRect(fx, fy, 10, 10, hue, 10, 260); sfx.firework();
+        game.particles.burstRect(fx, fy, 10, 10, hue, 8+Math.round(Math.random()*4), speed, size); sfx.firework();
         const add = (GAME_CONFIG.fireworkScore||500); game.score += add; updateHUD(); game.particles.text(fx, fy-14, `+${add}`, hue, 0.9);
-        // 偶尔并发第二朵，制造“偶然性”
-        if (Math.random() < 0.2) {
-          const fx2 = baseX + (Math.random()*220-10); const fy2 = baseY - Math.random()*60;
-          setTimeout(()=>{ try{ game.particles.burstRect(fx2, fy2, 10, 10, hue, 10, 240); sfx.firework(); }catch{} }, 80+Math.random()*120);
+        // 偶尔并发第二朵（不同深度/小偏移），制造“偶然性”
+        if (Math.random() < 0.22) {
+          const depth2 = [0.6, 0.85, 1.0][Math.floor(Math.random()*3)];
+          const size2 = Math.max(2, Math.round(3*depth2));
+          const sp2 = 200 + Math.round((depth2-0.6)*200);
+          const fx2 = baseX + (Math.random()*60-30); const fy2 = baseY - Math.random()*60;
+          setTimeout(()=>{ try{ game.particles.burstRect(fx2, fy2, 10, 10, hue, 6+Math.round(Math.random()*4), sp2, size2); sfx.firework(); }catch{} }, 80+Math.random()*140);
         }
       }
       // 倒计时自动进入下一关

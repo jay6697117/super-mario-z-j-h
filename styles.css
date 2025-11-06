@@ -5,11 +5,13 @@ body {
   color: #e2e8f0;
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Inter, Roboto, Arial, sans-serif;
 }
-.wrap { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px 0 24px; }
+.wrap { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px 0 24px; perspective: 600px; }
 canvas#game { display: block; image-rendering: pixelated; background: linear-gradient(#86c5ff, #bfe6ff); border: 2px solid #334155; border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.28); }
 .hud { display: flex; flex-wrap: wrap; gap: 16px 22px; font-size: 14px; user-select: none; width: 100%; max-width: 960px; justify-content: center; }
 .hud .bump { animation: hudBump 0.28s ease; }
+.hud .flip { animation: hudFlip 0.38s cubic-bezier(.2,.7,.2,1); transform-origin: center bottom; }
 @keyframes hudBump { 0%{ transform: scale(1); } 50%{ transform: scale(1.12); } 100%{ transform: scale(1); } }
+@keyframes hudFlip { 0%{ transform: rotateX(0deg) translateY(0); filter: brightness(1); } 50%{ transform: rotateX(70deg) translateY(-2px); filter: brightness(1.25);} 100%{ transform: rotateX(0deg) translateY(0); filter: brightness(1);} }
 .help { font-size: 12px; color: #94a3b8; max-width: 960px; text-align: center; line-height: 1.6; padding: 2px 8px; }
 .banner { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; font-size: 32px; font-weight: 700; color: #0f172a; background: rgba(226,232,240,.85); border-radius: 8px; pointer-events: none; }
 
