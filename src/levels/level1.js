@@ -20,6 +20,8 @@ export function createLevel1(){
   sbox(8,subRows-6,6,1); sbox(22,subRows-8,6,1); sub[subRows-9][24]='Q'; sub[subRows-3][subCols-6]='X';
   const subSpawn={x:4*TILE_SIZE,y:(subRows-4)*TILE_SIZE}; const returnPoint={x:(pipeCol+1)*TILE_SIZE,y:(rows-4)*TILE_SIZE};
   const subSpawns=[{type:'coin',x:9*TILE_SIZE,y:(subRows-10)*TILE_SIZE},{type:'coin',x:23*TILE_SIZE,y:(subRows-12)*TILE_SIZE},{type:'star',x:24*TILE_SIZE,y:(subRows-10)*TILE_SIZE}];
+  // 管道上的食人花
+  spawns.push({ type:'piranha', x: pipeCol*TILE_SIZE + TILE_SIZE/2, y: (rows-3)*TILE_SIZE });
 
   const level={ activeRoom:'main', timeLimit:300, main:{grid,rows,cols,spawn,spawns}, sub:{grid:sub,rows:subRows,cols:subCols,spawn:subSpawn,spawns:subSpawns}, rows,cols,grid,spawn,spawns, returnPoint,
     get(x,y){ return this.grid[y][x]; }, set(x,y,ch){ this.grid[y][x]=ch; }, getSpawns(){ return this.activeRoom==='main'?this.spawns:this.subSpawns; },
@@ -28,4 +30,3 @@ export function createLevel1(){
   level.activate('main');
   return level;
 }
-
