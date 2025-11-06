@@ -4,7 +4,7 @@ class SFX {
     this.ctx = null;
     this.unlocked = false;
     this.master = null;
-    this._music = { on: false, speed: 1, lastTick: 0 };
+    this._music = { on: false, speed: 1, lastTick: 0, mode: 'normal' };
   }
 
   initOnUserGesture() {
@@ -43,17 +43,28 @@ class SFX {
   break() { this.bip({ freq: 300, dur: 0.14, type: 'sawtooth' }); }
   star() { this.bip({ freq: 1000, dur: 0.15, type: 'triangle' }); }
 
-  musicStart() { if (!this.ctx) return; this._music.on = true; this._music.speed = 1; this._music.lastTick = this.ctx.currentTime; }
-  musicSpeedUp() { this._music.speed = 1.5; }
+  musicStart() { if (!this.ctx) return; this._music.on = true; this._music.speed = 1; this._music.mode = 'normal'; this._music.lastTick = this.ctx.currentTime; }
+  musicSpeedUp() { this._music.speed = 1.5; this._music.mode = 'low'; }
+  musicNormal() { this._music.speed = 1; this._music.mode = 'normal'; }
   musicStop() { this._music.on = false; }
   musicTick() {
     if (!this.ctx || !this._music.on) return;
     const now = this.ctx.currentTime;
-    const interval = 0.5 / this._music.speed; // 120bpm 基础
-    if (now - this._music.lastTick >= interval) { this._music.lastTick = now; this.bip({ freq: 523, dur: 0.04, type: 'triangle' }); }
+    // 120bpm 基础，根据模式/速度调整
+    const interval = 0.5 / this._music.speed;
+    if (now - this._music.lastTick >= interval) {
+      this._music.lastTick = now;
+      const base = this._music.mode === 'low' ? 740 : 523; // 低时限更高音
+      const dur = this._music.mode === 'low' ? 0.045 : 0.04;
+      const type = this._music.mode === 'low' ? 'square' : 'triangle';
+      this.bip({ freq: base, dur, type });
+      if (this._music.mode === 'low') {
+        // 叠加一个更短的弱音，制造紧迫感
+        this.bip({ freq: base*1.26|0, dur: 0.025, type: 'square' });
+      }
+    }
   }
   alertBeep() { this.bip({ freq: 950, dur: 0.05, type: 'square' }); }
 }
 
 export const sfx = new SFX();
-

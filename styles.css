@@ -15,3 +15,7 @@ canvas#game { display: block; image-rendering: pixelated; background: linear-gra
 .touch-controls .btn { pointer-events: auto; width: 60px; height: 60px; border-radius: 50%; border: none; background: rgba(15,23,42,0.6); color: #e2e8f0; font-size: 22px; font-weight: 700; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
 @media (min-width: 900px) { .touch-controls { display: none; } }
 
+/* 低时限HUD脉冲闪烁 */
+.hud-low-time { animation: hudPulse 0.6s ease-in-out infinite; }
+.hud-low-time #time { color: #ef4444; font-weight: 800; }
+@keyframes hudPulse { 0% { transform: none; } 50% { transform: scale(1.02); } 100% { transform: none; } }

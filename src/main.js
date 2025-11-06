@@ -21,6 +21,7 @@ import { Particles } from './engine/particles.js';
 import { TILE_SIZE } from './constants.js';
 import { GAME_CONFIG } from './config.js';
 import { FireBar } from './entities/firebar.js';
+import { GameUI } from './engine/ui.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -29,9 +30,10 @@ const hudCoins = document.getElementById('coins');
 const hudLives = document.getElementById('lives');
 const hudLevel = document.getElementById('level');
 const banner = document.getElementById('banner');
+const hudRoot = document.getElementById('hud');
 
 const GameState = { Playing: 'playing', Paused: 'paused', Win: 'win', Lose: 'lose' };
-const game = { state: GameState.Playing, level:null, input:new Input(), renderer:new Renderer(canvas, ctx), physics:new Physics(), particles:new Particles(), player:null, entities:[], score:0, coins:0, lives:Infinity, resetRequested:false, currentLevelIndex:0, lastShotAt:0, time:300, timeMax:300, lastTimeSec:null, winStage:null, flagBonus:0 };
+const game = { state: GameState.Playing, level:null, input:new Input(), renderer:new Renderer(canvas, ctx), physics:new Physics(), particles:new Particles(), player:null, entities:[], score:0, coins:0, lives:Infinity, resetRequested:false, currentLevelIndex:0, lastShotAt:0, time:300, timeMax:300, lastTimeSec:null, winStage:null, flagBonus:0, ui:new GameUI(ctx) };
 
 function getLevelByIndex(i){ if(i===0) return createLevel1(); if(i===1) return createLevel2(); if(i===2) return createLevel3(); if(i===3) return createLevel4(); return createLevel1(); }
 function loadLevel(){ const level=getLevelByIndex(game.currentLevelIndex); game.level=level; if(typeof level.activate==='function') level.activate('main'); game.entities.length=0; game.player=new Player(level.spawn.x, level.spawn.y); for(const e of (level.getSpawns? level.getSpawns(): level.spawns)){ if(e.type==='enemy') game.entities.push(new Enemy(e.x,e.y)); if(e.type==='koopa') game.entities.push(new Koopa(e.x,e.y)); if(e.type==='coin') game.entities.push(new Coin(e.x,e.y)); if(e.type==='mushroom') game.entities.push(new Mushroom(e.x,e.y)); if(e.type==='flower') game.entities.push(new Flower(e.x,e.y)); if(e.type==='piranha') game.entities.push(new Piranha(e.x, e.y)); if(e.type==='star') game.entities.push(new Star(e.x,e.y)); if(e.type==='firebar') game.entities.push(new FireBar(e.x, e.y, e.segments, e.speed)); } game.renderer.setWorldSize(level.cols*TILE_SIZE, level.rows*TILE_SIZE); game.renderer.cameraFollow(game.player); game.state=GameState.Playing; game.score=0; game.coins=0; game.lives=Infinity; game.resetRequested=false; game.winStage=null; hudLevel.textContent = (game.currentLevelIndex===0?'1-1':(game.currentLevelIndex===1?'1-2':(game.currentLevelIndex===2?'1-3':'1-4'))); game.time=game.timeMax=level.timeLimit||300; game.lastTimeSec=Math.ceil(game.time); updateHUD(); hideBanner(); sfx.musicStart(); }
@@ -60,7 +62,8 @@ function step(dt){
   // 计时与HUD
   game.time -= dt;
   if (game.time <= 0) { game.time = game.timeMax; player.respawnAtSaved(); showBanner('时间到！继续'); setTimeout(hideBanner, 800); }
-  if (game.time <= GAME_CONFIG.lowTimeThreshold) sfx.musicSpeedUp();
+  if (game.time <= GAME_CONFIG.lowTimeThreshold) { sfx.musicSpeedUp(); if (hudRoot) hudRoot.classList.add('hud-low-time'); }
+  else { sfx.musicNormal?.(); if (hudRoot) hudRoot.classList.remove('hud-low-time'); }
   const sec = Math.max(0, Math.ceil(game.time));
   if (game.lastTimeSec !== sec) { if (sec <= GAME_CONFIG.alertLastSeconds) sfx.alertBeep(); game.lastTimeSec = sec; }
   updateHUD();
@@ -134,7 +137,7 @@ function step(dt){
     else if (ent.kind === 'enemy' || ent.kind === 'koopa' || ent.kind === 'piranha') {
       const stomping = (ent.kind !== 'piranha') && player.vy > 0 && player.bottom() - ent.top() < 16;
       if (stomping) { if (ent.kind === 'koopa') { ent.dead = true; entities.push(new Shell(ent.x, ent.y + ent.h - 22)); } else ent.dead = true; player.vy = -player.jumpSpeed * 0.6; game.score += 200; updateHUD(); sfx.stomp(); }
-      else { if (player.invincibleTime > 0) { ent.dead = true; game.score += 200; updateHUD(); } else if (player.canShoot) { player.canShoot = false; player.vy = -player.jumpSpeed * 0.3; } else if (player.powered) { player.setPowered(false); player.vy = -player.jumpSpeed * 0.5; } else { player.respawnAtSaved(); return; } }
+      else { if (player.invincibleTime > 0) { ent.dead = true; game.score += 200; updateHUD(); } else if (player.canShoot) { player.canShoot = false; player.hurt?.(0.4); player.vy = -player.jumpSpeed * 0.3; } else if (player.powered) { player.setPowered(false); player.vy = -player.jumpSpeed * 0.5; } else { player.respawnAtSaved(); return; } }
     } else if (ent.kind === 'shell') {
       if (Math.abs(ent.vx) < 1) ent.vx = player.facing >= 0 ? 260 : -260; else if (player.invincibleTime <= 0) { if (player.canShoot) { player.canShoot = false; } else if (player.powered) player.setPowered(false); else { player.respawnAtSaved(); return; } }
     }
@@ -144,8 +147,25 @@ function step(dt){
   const flagTile = physics.rectFindTile(player, level, (t)=>t==='F');
   if (flagTile) {
     if (!game.winStage) { game.state = GameState.Win; game.winStage = 'slide'; const poleTop=(flagTile.y*TILE_SIZE)-3*TILE_SIZE; const poleBottom=(flagTile.y*TILE_SIZE)+TILE_SIZE; const touchY=Math.min(Math.max(player.y+player.h/2, poleTop), poleBottom); const ratio=1-(touchY-poleTop)/(poleBottom-poleTop); game.flagBonus = (ratio>0.9?5000: ratio>0.7?2000: ratio>0.5?800: ratio>0.3?400: 100); player.x = flagTile.x*TILE_SIZE + TILE_SIZE*0.45 - player.w/2; player.vx=0; player.vy=0; game._flagBottom=(flagTile.y*TILE_SIZE)+TILE_SIZE - player.h - 2; }
-    if (game.winStage === 'slide') { if (player.y < game._flagBottom) player.y = Math.min(game._flagBottom, player.y + 220*dt); else game.winStage = 'count'; }
-    else if (game.winStage === 'count') { if (game.time > 0) { const drain = Math.min(game.time, 60*dt); game.time -= drain; game.score += Math.floor(drain*5); sfx.alertBeep(); updateHUD(); } else { game.winStage = 'done'; game.score += game.flagBonus; updateHUD(); sfx.win(); if (game.currentLevelIndex===0) { showBanner('1-1 通关！R 进入 1-2'); game.currentLevelIndex=1; } else if (game.currentLevelIndex===1) { showBanner('1-2 通关！R 进入 1-3'); game.currentLevelIndex=2; } else { showBanner('全部通关！R 重玩'); game.currentLevelIndex=0; } } }
+    if (game.winStage === 'slide') { if (player.y < game._flagBottom) { player.y = Math.min(game._flagBottom, player.y + GAME_CONFIG.flagSlideSpeed*dt); player.pose='slide'; } else game.winStage = 'count'; }
+    else if (game.winStage === 'count') {
+      if (game.time > 0) {
+        const before = Math.ceil(game.time);
+        const drain = Math.min(game.time, GAME_CONFIG.settleDrainPerSec*dt);
+        game.time -= drain;
+        const after = Math.ceil(Math.max(0, game.time));
+        const delta = Math.max(0, before - after);
+        if (delta>0) { game.score += delta * GAME_CONFIG.timeBonusPerSecond; sfx.alertBeep(); }
+        updateHUD();
+      } else {
+        game.winStage = 'done';
+        game.score += game.flagBonus;
+        updateHUD(); sfx.win();
+        if (game.currentLevelIndex===0) { showBanner('1-1 通关！R 进入 1-2'); game.currentLevelIndex=1; }
+        else if (game.currentLevelIndex===1) { showBanner('1-2 通关！R 进入 1-3'); game.currentLevelIndex=2; }
+        else { showBanner('全部通关！R 重玩'); game.currentLevelIndex=0; }
+      }
+    }
   }
 
   // 射击
@@ -162,6 +182,6 @@ function step(dt){
   game.renderer.updateCamera(dt);
 }
 
-function render(){ const { renderer, level, player, entities } = game; renderer.clear(); renderer.drawBackground(level); renderer.drawLevel(level); for(const ent of entities) renderer.drawEntity(ent); renderer.drawEntity(player); game.particles.draw(renderer.ctx, renderer.camera); }
+function render(){ const { renderer, level, player, entities } = game; renderer.clear(); renderer.drawBackground(level); renderer.drawLevel(level); for(const ent of entities) renderer.drawEntity(ent); renderer.drawEntity(player); game.particles.draw(renderer.ctx, renderer.camera); if (game.winStage==='count') { game.ui.drawSettlement(renderer.canvas.width, renderer.canvas.height, { time: Math.ceil(Math.max(0, game.time)), score: game.score, flagBonus: game.flagBonus }); } }
 
 loadLevel(); requestAnimationFrame(frame);

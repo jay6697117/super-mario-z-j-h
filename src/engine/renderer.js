@@ -33,5 +33,44 @@ export class Renderer {
   drawEntity(ent){ const {x,y,w,h}=ent; const cx=Math.round(this.camera.x); const cy=Math.round(this.camera.y); const sx=Math.round(x-cx); const sy=Math.round(y-cy); const ctx=this.ctx; if(ent.kind==='player'){ this._drawPlayer(ctx,sx,sy,w,h,ent);} else if(ent.kind==='enemy'){ ctx.fillStyle='#8b5e34'; ctx.fillRect(sx,sy,w,h); ctx.strokeStyle='#5b3b1e'; ctx.beginPath(); const t=(ent.animTime||0)*10; ctx.moveTo(sx,sy+h*0.7+Math.sin(t)*2); ctx.lineTo(sx+w,sy+h*0.7+Math.sin(t)*2); ctx.stroke(); } else if(ent.kind==='coin'||ent.kind==='reward-coin'){ ctx.fillStyle='#facc15'; ctx.beginPath(); ctx.ellipse(sx+w/2,sy+h/2,w/2,h/2,0,0,Math.PI*2); ctx.fill(); ctx.strokeStyle='#92400e'; ctx.stroke(); } else if(ent.kind==='mushroom'){ ctx.fillStyle='#16a34a'; ctx.beginPath(); ctx.arc(sx+w/2,sy+h*0.55,w*0.55,Math.PI,0); ctx.fill(); ctx.fillStyle='#fef3c7'; ctx.fillRect(sx+w*0.32,sy+h*0.55,w*0.36,h*0.35);} else if(ent.kind==='flower'){ ctx.fillStyle='#ef4444'; ctx.beginPath(); ctx.arc(sx+w/2, sy+h/2, w*0.45, 0, Math.PI*2); ctx.fill(); ctx.fillStyle='#16a34a'; ctx.fillRect(sx+w*0.45, sy+h*0.55, w*0.1, h*0.4);}  else if(ent.kind==='star'){ ctx.fillStyle='#fcd34d'; ctx.beginPath(); for(let i=0;i<5;i++){ const a=(i*72-90)*Math.PI/180; const r=w/2; const px=sx+w/2+Math.cos(a)*r; const py=sy+h/2+Math.sin(a)*r; if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py); const a2=a+36*Math.PI/180; const r2=r*0.5; ctx.lineTo(sx+w/2+Math.cos(a2)*r2, sy+h/2+Math.sin(a2)*r2);} ctx.closePath(); ctx.fill(); } else if(ent.kind==='piranha'){ ctx.fillStyle='#059669'; ctx.fillRect(sx, sy, w, h); ctx.fillStyle='#064e3b'; ctx.fillRect(sx+4, sy+h-6, w-8, 4); ctx.fillStyle='#ecfeff'; ctx.fillRect(sx+3, sy+4, w-6, 6);} else if(ent.kind==='bullet'){ ctx.fillStyle='#fb923c'; ctx.beginPath(); ctx.arc(sx+w/2,sy+h/2,w/2,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#7c2d12'; ctx.fillRect(sx+w*0.2, sy+h*0.45, w*0.6, 2);} else if(ent.kind==='koopa'||ent.kind==='shell'){ ctx.fillStyle=ent.kind==='shell'?'#16a34a':'#047857'; ctx.fillRect(sx,sy,w,h); ctx.fillStyle='#064e3b'; ctx.fillRect(sx+2, sy+h-6, w-4, 4);} else if(ent.kind==='firebar'){ const balls=ent.balls(TILE_SIZE); ctx.fillStyle='#f97316'; for(const b of balls){ const bx=Math.round(b.cx-cx), by=Math.round(b.cy-cy); ctx.beginPath(); ctx.arc(bx,by,b.radius,0,Math.PI*2); ctx.fill(); } } }
   _cloud(x,y){ const ctx=this.ctx; ctx.beginPath(); ctx.arc(x,y,18,0,Math.PI*2); ctx.arc(x+18,y+6,16,0,Math.PI*2); ctx.arc(x+36,y,20,0,Math.PI*2); ctx.fill(); }
   _hill(x,y){ const ctx=this.ctx; ctx.beginPath(); ctx.moveTo(x-60,y); ctx.lineTo(x,y-80); ctx.lineTo(x+80,y); ctx.closePath(); ctx.fill(); }
-  _drawPlayer(ctx,sx,sy,w,h,ent){ const t=ent.animTime||0; const headH=h*0.35; const bodyH=h-headH; ctx.fillStyle='#dc2626'; ctx.fillRect(sx+2, sy+headH, w-4, bodyH-4); ctx.fillStyle='#f1c27d'; ctx.fillRect(sx+4, sy+2, w-8, headH-2); ctx.fillStyle='#b91c1c'; ctx.fillRect(sx+2, sy+0, w-4, headH*0.45); ctx.fillStyle='#1f2937'; const eyeX = ent.facing>=0 ? sx+w*0.65 : sx+w*0.3; ctx.fillRect(eyeX, sy+headH*0.45, 3, 4); ctx.fillStyle='#2563eb'; ctx.fillRect(sx+w*0.28, sy+headH+2, 4, bodyH-6); ctx.fillRect(sx+w*0.68, sy+headH+2, 4, bodyH-6); ctx.fillStyle='#facc15'; ctx.fillRect(sx+w*0.28, sy+headH+bodyH*0.45, 3, 3); ctx.fillRect(sx+w*0.68, sy+headH+bodyH*0.45, 3, 3); ctx.fillStyle='#1f2937'; if(!ent.grounded){ ctx.fillRect(sx+5, sy+h-10, w*0.35, 4); ctx.fillRect(sx+w-5-w*0.35, sy+h-10, w*0.35, 4);} else { const run=Math.min(1, Math.abs(ent.vx||0)/(ent.maxSpeed||200)); const swing=Math.sin(t*20)*3*run; ctx.fillRect(sx+4+swing, sy+h-6, w*0.35, 4); ctx.fillRect(sx+w-4-w*0.35-swing, sy+h-6, w*0.35, 4);} if(ent.invincibleTime&&ent.invincibleTime>0){ ctx.fillStyle='rgba(252,211,77,0.4)'; ctx.fillRect(sx-2,sy-2,w+4,h+4);} }
+  _drawPlayer(ctx,sx,sy,w,h,ent){
+    const t=ent.animTime||0; const headH=h*0.35; const bodyH=h-headH;
+    const pose = ent.pose || 'idle';
+    // 身体倾斜与偏移
+    let ox=0, oy=0; if(pose==='start') ox = ent.facing>=0 ? 2 : -2; else if (pose==='brake') ox = ent.facing>=0 ? -2 : 2; else if (pose==='hurt') oy = -1;
+    // 身体
+    ctx.fillStyle='#dc2626'; ctx.fillRect(Math.round(sx+2+ox), Math.round(sy+headH+oy), w-4, bodyH-4);
+    // 头部
+    ctx.fillStyle='#f1c27d'; ctx.fillRect(Math.round(sx+4+ox), Math.round(sy+2+oy), w-8, headH-2);
+    // 帽檐
+    ctx.fillStyle='#b91c1c'; ctx.fillRect(Math.round(sx+2+ox), Math.round(sy+0+oy), w-4, headH*0.45);
+    // 眼睛
+    ctx.fillStyle='#1f2937'; const eyeX = ent.facing>=0 ? sx+w*0.65+ox : sx+w*0.3+ox; ctx.fillRect(Math.round(eyeX), Math.round(sy+headH*0.45+oy), 3, 4);
+    // 臂/扣
+    ctx.fillStyle='#2563eb';
+    ctx.fillRect(Math.round(sx+w*0.28+ox), Math.round(sy+headH+2+oy), 4, bodyH-6);
+    ctx.fillRect(Math.round(sx+w*0.68+ox), Math.round(sy+headH+2+oy), 4, bodyH-6);
+    ctx.fillStyle='#facc15';
+    ctx.fillRect(Math.round(sx+w*0.28+ox), Math.round(sy+headH+bodyH*0.45+oy), 3, 3);
+    ctx.fillRect(Math.round(sx+w*0.68+ox), Math.round(sy+headH+bodyH*0.45+oy), 3, 3);
+    // 腿
+    ctx.fillStyle='#1f2937';
+    if(!ent.grounded || pose==='jump' || pose==='slide'){
+      ctx.fillRect(Math.round(sx+5+ox), Math.round(sy+h-10+oy), w*0.35, 4);
+      ctx.fillRect(Math.round(sx+w-5-w*0.35+ox), Math.round(sy+h-10+oy), w*0.35, 4);
+    } else if (pose==='start'){
+      const k=3; ctx.fillRect(Math.round(sx+4+ox+k), Math.round(sy+h-6+oy), w*0.35, 4);
+      ctx.fillRect(Math.round(sx+w-4-w*0.35+ox-k), Math.round(sy+h-6+oy), w*0.35, 4);
+    } else if (pose==='brake'){
+      const k=3; ctx.fillRect(Math.round(sx+4+ox-k), Math.round(sy+h-6+oy), w*0.35, 4);
+      ctx.fillRect(Math.round(sx+w-4-w*0.35+ox+k), Math.round(sy+h-6+oy), w*0.35, 4);
+    } else {
+      const run=Math.min(1, Math.abs(ent.vx||0)/(ent.maxSpeed||200)); const swing=Math.sin(t*20)*3*run;
+      ctx.fillRect(Math.round(sx+4+ox+swing), Math.round(sy+h-6+oy), w*0.35, 4);
+      ctx.fillRect(Math.round(sx+w-4-w*0.35+ox - swing), Math.round(sy+h-6+oy), w*0.35, 4);
+    }
+    // 无敌罩与受击闪烁
+    if(ent.invincibleTime&&ent.invincibleTime>0){ ctx.fillStyle='rgba(252,211,77,0.35)'; ctx.fillRect(sx-2,sy-2,w+4,h+4); }
+    if(pose==='hurt'){ ctx.fillStyle='rgba(239,68,68,0.25)'; ctx.fillRect(sx-2,sy-2,w+4,h+4); }
+  }
 }
