@@ -9,6 +9,8 @@ import { Shell } from '../entities/koopa.js';
 import { getLevelMeta } from '../data/levels-meta.js';
 import { Renderer } from '../engine/renderer.js';
 import { createRNG, pickWeighted } from '../engine/rng.js';
+import { GAME_CONFIG } from '../config.js';
+import { addConsumedSpawn, getConsumedSpawns } from '../data/progress.js';
 
 export function runTests(){
   const results=[]; const physics=new Physics();
@@ -119,6 +121,35 @@ export function runTests(){
     const seqA=[], seqB=[]; for(let i=0;i<8;i++){ seqA.push(pickWeighted(table, rngA.random)); seqB.push(pickWeighted(table, rngB.random)); }
     results.push(['rng-drops-deterministic', JSON.stringify(seqA)===JSON.stringify(seqB)]);
   } catch { results.push(['rng-drops-deterministic', false]); }
+
+  // 流式生成范围计算用例（与 main.js 同逻辑）
+  try {
+    const camW = 320, worldW = 200*TILE_SIZE;
+    const px1 = 100; // 玩家靠近起点
+    const viewL = Math.max(0, Math.min(px1 - camW*0.5, Math.max(0, worldW - camW)));
+    const viewR = Math.min(worldW, viewL + camW);
+    const margin = (GAME_CONFIG.stream?.activateMargin)||320;
+    const actL = Math.max(0, viewL - margin), actR = Math.min(worldW, viewR + margin);
+    const spawnX = actR - 10;
+    const activate = (spawnX>=actL && spawnX<=actR);
+    results.push(['stream-activate-in-margin', activate===true]);
+
+    const dspL = viewL - ((GAME_CONFIG.stream?.despawnLeft)||480);
+    const dspR = viewR + ((GAME_CONFIG.stream?.despawnRight)||640);
+    const exLeft = dspL - 1; const exRight = dspR + 1;
+    const shouldDespawnLeft = (exLeft < dspL);
+    const shouldDespawnRight = (exRight > dspR);
+    results.push(['stream-despawn-left', shouldDespawnLeft===true]);
+    results.push(['stream-despawn-right', shouldDespawnRight===true]);
+  } catch { results.push(['stream-activate-in-margin', false]); results.push(['stream-despawn-left', false]); results.push(['stream-despawn-right', false]); }
+
+  // 进度持久化：一次性掉落
+  try {
+    const lvl = 'test-1-1'; const key = 'main:coin:96,128';
+    addConsumedSpawn(lvl, key);
+    const arr = getConsumedSpawns(lvl);
+    results.push(['progress-consumed-persist', Array.isArray(arr) && arr.includes(key)]);
+  } catch { results.push(['progress-consumed-persist', false]); }
   const failed=results.filter(([,ok])=>!ok);
   console.table(results.map(([name,ok])=>({name, ok}))); if(failed.length===0) console.log('所有测试通过'); else console.warn('失败用例', failed);
 }

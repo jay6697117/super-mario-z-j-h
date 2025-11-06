@@ -22,6 +22,7 @@ import { Particles } from './engine/particles.js';
 import { TILE_SIZE } from './constants.js';
 import { GAME_CONFIG } from './config.js';
 import { WORLD_MAP as WORLD_MAP_DATA, getLevelMeta, getLevelId } from './data/levels-meta.js';
+import { getRngSeed as loadRngSeed, setRngSeed as saveRngSeed, getConsumedSpawns as loadConsumed, addConsumedSpawn as persistConsumed } from './data/progress.js';
 import { loadProgress, saveProgress, setCurrentLevel as saveCurrentLevel, getCurrentLevel as loadCurrentLevel, setCheckpoint as saveCheckpoint, getCheckpoint as loadCheckpoint, clearCheckpoint } from './data/progress.js';
 import { FireBar } from './entities/firebar.js';
 import { Cheep } from './entities/cheep.js';
@@ -60,12 +61,22 @@ const game = { state: GameState.Playing, level:null, input:new Input(), renderer
 
 // RNG：若配置了种子则使用确定性随机
 let __RNG = null;
-function randf(){ if (!__RNG && GAME_CONFIG.rngSeed!=null) __RNG = createRNG(String(GAME_CONFIG.rngSeed)); return __RNG? __RNG.random() : Math.random(); }
+function ensureRNG(){
+  if (__RNG) return;
+  let seed = null;
+  try { seed = loadRngSeed(); } catch {}
+  if (seed==null && GAME_CONFIG.rngSeed!=null) { seed = String(GAME_CONFIG.rngSeed); try { saveRngSeed(seed); } catch {} }
+  if (seed!=null) __RNG = createRNG(String(seed));
+}
+function randf(){ ensureRNG(); return __RNG? __RNG.random() : Math.random(); }
 
 // 一次性掉落型（被拾取/消耗后不再生成）
 const ONCE_TYPES = new Set(['coin','mushroom','flower','star']);
 
 function currentRoomKey(){ const lv=game.level; return (lv && lv.activeRoom) || 'main'; }
+
+// 实用：安全获取实体顶部（不存在 top() 时回退到 y）
+function topOf(ent){ try { return (typeof ent.top==='function') ? ent.top() : (ent.y||0); } catch { return ent && ent.y!=null ? ent.y : 0; } }
 
 function initPendingSpawnsForRoom(){
   const level = game.level; if (!level) return;
@@ -119,7 +130,13 @@ function spawnTick(){
   game.entities = game.entities.filter(e=>e && !e.dead);
 }
 
-function markSpawnConsumed(ent){ const sid = ent && ent._spawnId; if (sid==null) return; const room=currentRoomKey(); const rec = game._spawnRecords[sid]; if (!rec) return; if (!game._consumedByRoom[room]) game._consumedByRoom[room]=new Set(); game._consumedByRoom[room].add(rec._key); }
+function markSpawnConsumed(ent){
+  const sid = ent && ent._spawnId; if (sid==null) return; const room=currentRoomKey(); const rec = game._spawnRecords[sid]; if (!rec) return;
+  if (!game._consumedByRoom[room]) game._consumedByRoom[room]=new Set();
+  game._consumedByRoom[room].add(rec._key);
+  // 持久化跨刷新
+  try { const levelId = (typeof getLevelId === 'function' ? getLevelId(game.currentLevelIndex) : undefined) || (WORLD_MAP[game.currentLevelIndex]||'1-1'); persistConsumed(levelId, rec._key); } catch {}
+}
 
 function getLevelByIndex(i){ const m = ((i%4)+4)%4; if(m===0) return createLevel1(); if(m===1) return createLevel2(); if(m===2) return createLevel3(); if(m===3) return createLevel4(); return createLevel1(); }
 const WORLD_MAP = WORLD_MAP_DATA;
@@ -138,6 +155,11 @@ function loadLevel(){
   game.player=new Player(spawnX, spawnY);
   // 初始化刷怪系统（主房间：不一次性实例化）
   game._activeSpawnById = {}; game._spawnRecords={}; game._consumedByRoom={}; game.pendingSpawns=[]; game._spawnSeq=1;
+  // 载入一次性掉落的已消耗记录
+  try {
+    const consumed = loadConsumed(levelId)||[];
+    for(const key of consumed){ const room = String(key).split(':',1)[0]||'main'; if (!game._consumedByRoom[room]) game._consumedByRoom[room] = new Set(); game._consumedByRoom[room].add(key); }
+  } catch {}
   initPendingSpawnsForRoom();
   game.renderer.setWorldSize(level.cols*TILE_SIZE, level.rows*TILE_SIZE);
   game.renderer.cameraFollow(game.player);
@@ -337,9 +359,9 @@ function step(dt){
     else if (ent.kind === 'star') { ent.dead = true; markSpawnConsumed(ent); player.invincibleTime = 10; game.score += 500; updateHUD(); sfx.star(); }
     else if (ent.kind === 'enemy' || ent.kind === 'koopa' || ent.kind === 'piranha' || ent.kind==='cheep' || ent.kind==='blooper' || ent.kind==='bill' || ent.kind==='hammer-bro' || ent.kind==='hammer' || ent.kind==='lakitu' || ent.kind==='spiny') {
       // 稳健踩踏判定：上一帧底部在目标顶部上方，当前帧向下且重叠
-      const approachedFromAbove = (prevBottom <= ent.top() + 8);
+      const approachedFromAbove = (prevBottom <= topOf(ent) + 8);
       const falling = player.vy > 0;
-      const closeEnough = (player.bottom() - ent.top()) < 18;
+      const closeEnough = (player.bottom() - topOf(ent)) < 18;
       const canStomp = (ent.kind !== 'piranha' && ent.kind !== 'spiny');
       const stomping = canStomp && falling && approachedFromAbove && closeEnough;
       if (stomping) { if (ent.kind === 'koopa') { ent.dead = true; entities.push(new Shell(ent.x, ent.y + ent.h - 22)); } else ent.dead = true; player.vy = -player.jumpSpeed * 0.6; game.score += 200; updateHUD(); sfx.stomp(); }

@@ -16,3 +16,17 @@ export function setCheckpoint(levelId, pos) { const p = read(); if (!p.checkpoin
 export function getCheckpoint(levelId) { const p = read(); return (p.checkpoints && p.checkpoints[levelId]) ? p.checkpoints[levelId] : null; }
 export function clearCheckpoint(levelId) { const p = read(); if (p.checkpoints && p.checkpoints[levelId]) { delete p.checkpoints[levelId]; write(p); } }
 
+// 一次性掉落消耗持久化（按关卡）
+export function addConsumedSpawn(levelId, key){
+  if (!levelId || !key) return;
+  const p = read(); if (!p.consumed) p.consumed = {};
+  const arr = Array.isArray(p.consumed[levelId]) ? p.consumed[levelId] : (p.consumed[levelId] = []);
+  if (!arr.includes(key)) arr.push(key);
+  write(p);
+}
+export function getConsumedSpawns(levelId){ const p = read(); const arr = p.consumed && p.consumed[levelId]; return Array.isArray(arr) ? arr.slice() : []; }
+export function clearConsumedSpawns(levelId){ const p = read(); if (p.consumed && p.consumed[levelId]) { delete p.consumed[levelId]; write(p); } }
+
+// RNG 种子持久化
+export function setRngSeed(seed){ const p = read(); if (seed==null) { delete p.rngSeed; } else { p.rngSeed = String(seed); } write(p); }
+export function getRngSeed(){ const p = read(); return (p.rngSeed!=null) ? String(p.rngSeed) : null; }
