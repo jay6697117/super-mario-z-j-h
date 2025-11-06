@@ -30,6 +30,7 @@ import { HammerBro } from './entities/hammer-bro.js';
 import { Lakitu } from './entities/lakitu.js';
 import { Spiny } from './entities/spiny.js';
 import { GameUI } from './engine/ui.js';
+import { LevelEditor } from './tools/editor.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -41,7 +42,7 @@ const banner = document.getElementById('banner');
 const hudRoot = document.getElementById('hud');
 
 const GameState = { Playing: 'playing', Paused: 'paused', Win: 'win', Lose: 'lose' };
-const game = { state: GameState.Playing, level:null, input:new Input(), renderer:new Renderer(canvas, ctx), physics:new Physics(), particles:new Particles(), player:null, entities:[], score:0, coins:0, lives:Infinity, resetRequested:false, currentLevelIndex:0, lastShotAt:0, time:300, timeMax:300, lastTimeSec:null, winStage:null, flagBonus:0, ui:new GameUI(ctx), lowTimeThreshold: GAME_CONFIG.lowTimeThreshold, alertLastSeconds: GAME_CONFIG.alertLastSeconds, timeBonusPerSecond: GAME_CONFIG.timeBonusPerSecond };
+const game = { state: GameState.Playing, level:null, input:new Input(), renderer:new Renderer(canvas, ctx), physics:new Physics(), particles:new Particles(), player:null, entities:[], score:0, coins:0, lives:Infinity, resetRequested:false, currentLevelIndex:0, lastShotAt:0, time:300, timeMax:300, lastTimeSec:null, winStage:null, flagBonus:0, ui:new GameUI(ctx), lowTimeThreshold: GAME_CONFIG.lowTimeThreshold, alertLastSeconds: GAME_CONFIG.alertLastSeconds, timeBonusPerSecond: GAME_CONFIG.timeBonusPerSecond, editor:null };
 
 function getLevelByIndex(i){ if(i===0) return createLevel1(); if(i===1) return createLevel2(); if(i===2) return createLevel3(); if(i===3) return createLevel4(); return createLevel1(); }
 const WORLD_MAP = WORLD_MAP_DATA;
@@ -92,7 +93,8 @@ function updateHUD(){ hudScore.textContent=String(game.score); hudCoins.textCont
 function showBanner(text){ banner.textContent=text; banner.style.display='flex'; }
 function hideBanner(){ banner.style.display='none'; }
 
-document.addEventListener('keydown', (e)=>{ sfx.initOnUserGesture(); const block=['Space','KeyX']; if(block.includes(e.code)) e.preventDefault(); if(e.code==='KeyP'){ if(game.state===GameState.Playing){ game.state=GameState.Paused; showBanner('已暂停 P 继续'); } else if (game.state===GameState.Paused){ game.state=GameState.Playing; hideBanner(); } } if(e.code==='KeyR'){ if(game.state===GameState.Win || game.state===GameState.Lose){ loadLevel(); hideBanner(); } else { game.resetRequested=true; } } });
+document.addEventListener('keydown', (e)=>{ sfx.initOnUserGesture(); const block=['Space','KeyX']; if(block.includes(e.code)) e.preventDefault(); if(e.code==='KeyP'){ if(game.state===GameState.Playing){ game.state=GameState.Paused; showBanner('已暂停 P 继续'); } else if (game.state===GameState.Paused){ game.state=GameState.Playing; hideBanner(); } } if(e.code==='KeyR'){ if(game.state===GameState.Win || game.state===GameState.Lose){ loadLevel(); hideBanner(); } else { game.resetRequested=true; } } if (e.code==='KeyE'){ if (!game.editor) game.editor = new LevelEditor(game, canvas, game.renderer); game.editor.toggle(); if (game.editor.active) showBanner('编辑器模式 E 退出'); else hideBanner(); } if (e.code==='KeyO'){ // 快照下载
+  const a=document.createElement('a'); a.href=canvas.toDataURL('image/png'); a.download=`snapshot-${Date.now()}.png`; a.click(); } });
 const touch=document.getElementById('touch'); if(touch){ const apply=(el,on)=>{ const key=el.dataset.key; const handler=(ev)=>{ ev.preventDefault(); game.input.setVirtual(key,on);} ; el.addEventListener('touchstart',handler,{passive:false}); el.addEventListener('touchend',(ev)=>{ev.preventDefault(); game.input.setVirtual(key,false);},{passive:false}); el.addEventListener('touchcancel',(ev)=>{ev.preventDefault(); game.input.setVirtual(key,false);},{passive:false}); el.addEventListener('mousedown',handler); el.addEventListener('mouseup',()=>game.input.setVirtual(key,false)); el.addEventListener('mouseleave',()=>game.input.setVirtual(key,false)); }; touch.querySelectorAll('button').forEach((btn)=>apply(btn,true)); }
 
 const FIXED_DT = 1/60; let acc=0; let last=performance.now();
@@ -265,6 +267,6 @@ function step(dt){
   game.renderer.updateCamera(dt);
 }
 
-function render(){ const { renderer, level, player, entities } = game; renderer.clear(); renderer.drawBackground(level); renderer.drawLevel(level); for(const ent of entities) renderer.drawEntity(ent); renderer.drawEntity(player); game.particles.draw(renderer.ctx, renderer.camera); if (game.winStage==='count') { game.ui.drawSettlement(renderer.canvas.width, renderer.canvas.height, { time: Math.ceil(Math.max(0, game.time)), score: game.score, flagBonus: game.flagBonus }); } }
+function render(){ const { renderer, level, player, entities } = game; renderer.clear(); renderer.drawBackground(level); renderer.drawLevel(level); for(const ent of entities) renderer.drawEntity(ent); renderer.drawEntity(player); game.particles.draw(renderer.ctx, renderer.camera); if (game.editor && game.editor.active) game.editor.drawOverlay(renderer.ctx); if (game.winStage==='count') { game.ui.drawSettlement(renderer.canvas.width, renderer.canvas.height, { time: Math.ceil(Math.max(0, game.time)), score: game.score, flagBonus: game.flagBonus }); } }
 
 loadLevel(); requestAnimationFrame(frame);

@@ -19,3 +19,10 @@ canvas#game { display: block; image-rendering: pixelated; background: linear-gra
 .hud-low-time { animation: hudPulse 0.6s ease-in-out infinite; }
 .hud-low-time #time { color: #ef4444; font-weight: 800; }
 @keyframes hudPulse { 0% { transform: none; } 50% { transform: scale(1.02); } 100% { transform: none; } }
+
+/* 编辑器面板 */
+.editor-panel { position: fixed; left: 12px; top: 12px; background: rgba(15,23,42,.9); color: #e2e8f0; padding: 8px 10px; border: 1px solid #334155; border-radius: 6px; z-index: 20; font-size: 13px; user-select: none; }
+.editor-toolbar { display: flex; gap: 8px; align-items: center; }
+.editor-toolbar .title { font-weight: 700; margin-right: 6px; }
+.editor-panel select, .editor-panel button { background: #0f172a; color: #e2e8f0; border: 1px solid #334155; border-radius: 4px; padding: 2px 6px; }
+.editor-panel .hint { margin-top: 6px; color: #94a3b8; }
