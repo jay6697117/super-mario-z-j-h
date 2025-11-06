@@ -336,7 +336,12 @@ function step(dt){
     else if (ent.kind === 'flower') { ent.dead = true; markSpawnConsumed(ent); player.setPowered(true); player.canShoot = true; game.score += 500; updateHUD(); sfx.powerup(); }
     else if (ent.kind === 'star') { ent.dead = true; markSpawnConsumed(ent); player.invincibleTime = 10; game.score += 500; updateHUD(); sfx.star(); }
     else if (ent.kind === 'enemy' || ent.kind === 'koopa' || ent.kind === 'piranha' || ent.kind==='cheep' || ent.kind==='blooper' || ent.kind==='bill' || ent.kind==='hammer-bro' || ent.kind==='hammer' || ent.kind==='lakitu' || ent.kind==='spiny') {
-      const stomping = (ent.kind !== 'piranha' && ent.kind !== 'spiny') && player.vy > 0 && player.bottom() - ent.top() < 16;
+      // 稳健踩踏判定：上一帧底部在目标顶部上方，当前帧向下且重叠
+      const approachedFromAbove = (prevBottom <= ent.top() + 8);
+      const falling = player.vy > 0;
+      const closeEnough = (player.bottom() - ent.top()) < 18;
+      const canStomp = (ent.kind !== 'piranha' && ent.kind !== 'spiny');
+      const stomping = canStomp && falling && approachedFromAbove && closeEnough;
       if (stomping) { if (ent.kind === 'koopa') { ent.dead = true; entities.push(new Shell(ent.x, ent.y + ent.h - 22)); } else ent.dead = true; player.vy = -player.jumpSpeed * 0.6; game.score += 200; updateHUD(); sfx.stomp(); }
       else { if (player.invincibleTime > 0) { ent.dead = true; game.score += 200; updateHUD(); } else if (player.canShoot) { player.canShoot = false; if (typeof player.hurt === 'function') player.hurt(0.4); player.vy = -player.jumpSpeed * 0.3; } else if (player.powered) { player.setPowered(false); player.vy = -player.jumpSpeed * 0.5; } else { loseLife('enemy'); return; } }
     } else if (ent.kind === 'shell') {
