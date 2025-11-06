@@ -159,14 +159,26 @@ function step(dt){
     if (tile === 'B') {
       if (player.powered) { level.set(x, y, '-'); game.particles.burstRect(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE, '#a16207'); sfx.break(); game.score += 50; updateHUD(); }
       else sfx.bump();
-    } else if (tile === 'Q') {
-      level.set(x, y, 'N');
-      if (player.powered && !player.canShoot) { entities.push(new Flower(x*TILE_SIZE, (y-1)*TILE_SIZE)); sfx.powerup(); }
-      else {
-        const r = Math.random();
-        if (r < 0.5) { const rc = new RewardCoin(x*TILE_SIZE+6, y*TILE_SIZE-8); entities.push(rc); game.coins += 1; game.score += 100; updateHUD(); sfx.coin(); }
-        else if (r < 0.75) { entities.push(new Star(x*TILE_SIZE+6, y*TILE_SIZE-8)); sfx.star(); }
-        else { entities.push(new Mushroom(x*TILE_SIZE, (y-1)*TILE_SIZE)); sfx.powerup(); }
+    } else if (tile === 'Q' || tile==='M') {
+      if (tile==='Q'){
+        level.set(x, y, 'N');
+        if (player.powered && !player.canShoot) { entities.push(new Flower(x*TILE_SIZE, (y-1)*TILE_SIZE)); sfx.powerup(); }
+        else {
+          const r = Math.random();
+          if (r < 0.5) { const rc = new RewardCoin(x*TILE_SIZE+6, y*TILE_SIZE-8); entities.push(rc); game.coins += 1; game.score += 100; updateHUD(); sfx.coin(); }
+          else if (r < 0.75) { entities.push(new Star(x*TILE_SIZE+6, y*TILE_SIZE-8)); sfx.star(); }
+          else { entities.push(new Mushroom(x*TILE_SIZE, (y-1)*TILE_SIZE)); sfx.powerup(); }
+        }
+      } else {
+        // 多金币砖：在时间窗口内可多次出币，用尽或超时后变 N
+        if (!level._mcState) level._mcState = {};
+        const key = `${x},${y}`;
+        let st = level._mcState[key];
+        if (!st) { const def=GAME_CONFIG.multiCoinDefault||{count:10,windowSec:6}; st = level._mcState[key] = { remain: def.count||10, timer: def.windowSec||6 }; }
+        if (st.remain>0 && st.timer>0){
+          const rc = new RewardCoin(x*TILE_SIZE+6, y*TILE_SIZE-8); entities.push(rc); game.coins += 1; game.score += 100; updateHUD(); sfx.coin(); st.remain -= 1;
+          if (st.remain<=0){ level.set(x, y, 'N'); delete level._mcState[key]; }
+        }
       }
     }
   }
@@ -361,9 +373,16 @@ function step(dt){
 
   // 摄像机
   game.renderer.cameraFollow(player);
+  if (level.autoScrollSpeed && level.autoScrollSpeed>0){
+    game.renderer.nudgeCamera(level.autoScrollSpeed*dt, 0);
+    const leftBound = game.renderer.camera.x + 8;
+    if (player.x + player.w/2 < leftBound){ loseLife('scroll'); return; }
+  }
   game.renderer.updateCamera(dt);
 }
 
 function render(){ const { renderer, level, player, entities } = game; renderer.clear(); renderer.drawBackground(level); renderer.drawLevel(level); for(const ent of entities) renderer.drawEntity(ent); renderer.drawEntity(player); game.particles.draw(renderer.ctx, renderer.camera); if (game.editor && game.editor.active) game.editor.drawOverlay(renderer.ctx); if (game.winStage==='count') { game.ui.drawSettlement(renderer.canvas.width, renderer.canvas.height, { time: Math.ceil(Math.max(0, game.time)), score: game.score, flagBonus: game.flagBonus }); } if (game.winStage==='celebrate'){ const ctx=renderer.ctx; ctx.save(); ctx.fillStyle=`rgba(0,0,0,${Math.max(0,Math.min(1, game._fadeAlpha||0))})`; ctx.fillRect(0,0,renderer.canvas.width,renderer.canvas.height); ctx.restore(); } }
 
 loadLevel(); requestAnimationFrame(frame);
+  // 多金币砖计时衰减
+  if (level._mcState){ for (const k of Object.keys(level._mcState)){ const st=level._mcState[k]; st.timer -= dt; if (st.timer<=0){ const [sx,sy]=k.split(',').map(n=>parseInt(n)); level.set(sx, sy, 'N'); delete level._mcState[k]; } } }

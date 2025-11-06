@@ -6,7 +6,7 @@ export class Physics {
   aabbOverlap(a, b) { return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
 
   tileAt(level, col, row) { if (col < 0 || row < 0 || col >= level.cols || row >= level.rows) return '#'; return level.get(col, row); }
-  isSolid(t) { return t === '#' || t === 'B' || t === 'Q' || t === 'N' || t === 'V' || t === 'X'; }
+  isSolid(t) { return t === '#' || t === 'B' || t === 'Q' || t === 'N' || t === 'M' || t === 'V' || t === 'X'; }
 
   collideAndSlideRect(rect, vx, vy, level) {
     let dx = vx, dy = vy; // 水平
@@ -48,4 +48,3 @@ export class Physics {
     return null;
   }
 }
-
