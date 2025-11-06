@@ -90,7 +90,10 @@ function loadLevel(){
   game.alertLastSeconds = (level.alertLastSeconds!=null) ? level.alertLastSeconds : ((__meta && __meta.alertLastSeconds)!=null ? __meta.alertLastSeconds : GAME_CONFIG.alertLastSeconds);
   game.timeBonusPerSecond = (level.timeBonusPerSecond!=null) ? level.timeBonusPerSecond : ((__meta && __meta.timeBonusPerSecond)!=null ? __meta.timeBonusPerSecond : GAME_CONFIG.timeBonusPerSecond);
   game.lastTimeSec=Math.ceil(game.time);
-  updateHUD(); hideBanner(); sfx.musicStart();
+  updateHUD();
+  // 关卡开始提示
+  try { const label = WORLD_MAP[game.currentLevelIndex]||''; showBanner(`WORLD ${label}`); setTimeout(hideBanner, 800); } catch {}
+  sfx.musicStart();
 }
 function updateHUD(){ hudScore.textContent=String(game.score); hudCoins.textContent=String(game.coins); hudLives.textContent='∞'; const tNode=document.getElementById('time'); if(tNode) tNode.textContent=String(Math.max(0, Math.ceil(game.time))); }
 function showBanner(text){ banner.textContent=text; banner.style.display='flex'; }
@@ -272,7 +275,7 @@ function step(dt){
         const fx = (game._flagX||player.x) + 80 + Math.random()*160;
         const fy = Math.max(40, player.y - 140 - Math.random()*60);
         game.particles.burstRect(fx, fy, 10, 10, '#fcd34d', 10, 260); sfx.firework();
-        game.score += (GAME_CONFIG.fireworkScore||500); updateHUD();
+        const add = (GAME_CONFIG.fireworkScore||500); game.score += add; updateHUD(); game.particles.text(fx, fy-14, `+${add}`, '#fcd34d', 0.9);
       }
       // 倒计时自动进入下一关
       game._celebrateTick += dt;
