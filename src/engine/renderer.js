@@ -46,7 +46,14 @@ export class Renderer {
   clear(){ this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height); }
   drawBackground(level){ const ctx=this.ctx; const theme = (level?.theme) || (level?.activeRoom==='sub' ? 'underground' : 'sky');
     if (theme === 'castle') { const g=ctx.createLinearGradient(0,0,0,this.canvas.height); g.addColorStop(0,'#1f2937'); g.addColorStop(1,'#111827'); ctx.fillStyle=g; ctx.fillRect(0,0,this.canvas.width,this.canvas.height); }
-    else if (theme === 'water') { const g=ctx.createLinearGradient(0,0,0,this.canvas.height); g.addColorStop(0,'#0ea5e9'); g.addColorStop(1,'#0c4a6e'); ctx.fillStyle=g; ctx.fillRect(0,0,this.canvas.width,this.canvas.height); ctx.fillStyle='#ffffff20'; for(let i=0;i<12;i++){ const r=6+Math.random()*8; const x=Math.random()*this.canvas.width; const y=Math.random()*this.canvas.height; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); } }
+    else if (theme === 'water') { const g=ctx.createLinearGradient(0,0,0,this.canvas.height); g.addColorStop(0,'#0ea5e9'); g.addColorStop(1,'#0c4a6e'); ctx.fillStyle=g; ctx.fillRect(0,0,this.canvas.width,this.canvas.height); ctx.fillStyle='#ffffff20';
+      // 去随机化：预生成固定“气泡”位置，确保渲染快照可重复
+      if (!this._waterBubbles || this._wbW!==this.canvas.width || this._wbH!==this.canvas.height){
+        this._waterBubbles=[]; this._wbW=this.canvas.width; this._wbH=this.canvas.height;
+        for(let i=0;i<12;i++){ const r=6+((i*13)%8); const x=(i*83)%this.canvas.width; const y=(i*47)%this.canvas.height; this._waterBubbles.push({x,y,r}); }
+      }
+      for(const b of this._waterBubbles){ ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.fill(); }
+    }
     else if (theme === 'underground') { const g=ctx.createLinearGradient(0,0,0,this.canvas.height); g.addColorStop(0,'#0ea5e9'); g.addColorStop(1,'#0369a1'); ctx.fillStyle=g; ctx.fillRect(0,0,this.canvas.width,this.canvas.height); }
     else { /* sky */ }
     if (theme === 'sky') { const cx=Math.round(this.camera.x); const cy=Math.round(this.camera.y); ctx.save(); ctx.translate(Math.round(-cx*0.2),Math.round(-cy*0.2)); ctx.fillStyle='#ffffff80'; for(let i=0;i<6;i++){ const x=200+i*300; const y=100+(i%3)*40; this._cloud(x,y);} ctx.restore(); ctx.save(); ctx.translate(Math.round(-cx*0.4),Math.round(-cy*0.1)); ctx.fillStyle='#7fbf5b'; for(let i=0;i<8;i++){ const x=100+i*400; const y=this.canvas.height-80; this._hill(x,y);} ctx.restore(); }

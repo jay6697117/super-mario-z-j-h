@@ -7,6 +7,7 @@ import { Bullet } from '../entities/bullet.js';
 import { Enemy } from '../entities/enemy.js';
 import { Shell } from '../entities/koopa.js';
 import { getLevelMeta } from '../data/levels-meta.js';
+import { Renderer } from '../engine/renderer.js';
 
 export function runTests(){
   const results=[]; const physics=new Physics();
@@ -79,6 +80,19 @@ export function runTests(){
 
   // 元数据：水下关（1-3）的时间应为 400
   try { const meta13 = getLevelMeta(2); results.push(['meta-1-3-timelimit-400', meta13 && meta13.timeLimit===400]); } catch { results.push(['meta-1-3-timelimit-400', false]); }
+
+  // 渲染快照：固定关卡与摄像机，验证砖块像素颜色
+  try {
+    const canvas=document.createElement('canvas'); canvas.width=96; canvas.height=96; const ctx=canvas.getContext('2d');
+    const renderer=new Renderer(canvas, ctx); const r2=6, c2=6; const gridS=Array.from({length:r2},()=>Array(c2).fill('-')); gridS[3][2]='B';
+    const lvl={ rows:r2, cols:c2, grid:gridS, theme:'sky', get(x,y){ return gridS[y][x]; } };
+    renderer.setWorldSize(c2*TILE_SIZE, r2*TILE_SIZE);
+    renderer.camera.x=0; renderer.camera.y=0;
+    renderer.clear(); renderer.drawBackground(lvl); renderer.drawLevel(lvl);
+    const px = 2*TILE_SIZE + Math.floor(TILE_SIZE/2), py = 3*TILE_SIZE + Math.floor(TILE_SIZE/2);
+    const data = ctx.getImageData(px, py, 1, 1).data; const toHex=(v)=>v.toString(16).padStart(2,'0'); const hex = `#${toHex(data[0])}${toHex(data[1])}${toHex(data[2])}`;
+    results.push(['snapshot-brick-center', hex.toLowerCase()==='#a16207']);
+  } catch(err){ results.push(['snapshot-brick-center', false]); }
   const failed=results.filter(([,ok])=>!ok);
   console.table(results.map(([name,ok])=>({name, ok}))); if(failed.length===0) console.log('所有测试通过'); else console.warn('失败用例', failed);
 }

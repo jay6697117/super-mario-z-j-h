@@ -57,10 +57,10 @@ function loadLevel(){
   if(typeof level.activate==='function') level.activate('main');
   game.entities.length=0;
   // 玩家初始出生点（支持存档checkpoint覆盖）
-  const levelId = getLevelId?.(game.currentLevelIndex) || (WORLD_MAP[game.currentLevelIndex]||'1-1');
-  const cp = loadCheckpoint?.(levelId);
-  const spawnX = (cp?.x != null) ? cp.x : level.spawn.x;
-  const spawnY = (cp?.y != null) ? cp.y : level.spawn.y;
+  const levelId = (typeof getLevelId === 'function' ? getLevelId(game.currentLevelIndex) : undefined) || (WORLD_MAP[game.currentLevelIndex]||'1-1');
+  const cp = (typeof loadCheckpoint === 'function') ? loadCheckpoint(levelId) : undefined;
+  const spawnX = (cp && cp.x != null) ? cp.x : level.spawn.x;
+  const spawnY = (cp && cp.y != null) ? cp.y : level.spawn.y;
   game.player=new Player(spawnX, spawnY);
   for(const e of (level.getSpawns? level.getSpawns(): level.spawns)){
     if(e.type==='enemy') game.entities.push(new Enemy(e.x,e.y));
@@ -76,7 +76,7 @@ function loadLevel(){
     if(e.type==='firebar') game.entities.push(new FireBar(e.x, e.y, e.segments, e.speed));
     if(e.type==='cheep') game.entities.push(new Cheep(e.x,e.y,e.dir||-1));
     if(e.type==='blooper') game.entities.push(new Blooper(e.x,e.y));
-    if(e.type==='cannon') { const c=new Cannon(e.x,e.y,e.dir??-1,e.period??2.2); if(e.range!=null) c.range=e.range; if(e.maxActive!=null) c.maxActive=e.maxActive; game.entities.push(c);} 
+    if(e.type==='cannon') { const c=new Cannon(e.x,e.y,(e.dir!=null?e.dir:-1),(e.period!=null?e.period:2.2)); if(e.range!=null) c.range=e.range; if(e.maxActive!=null) c.maxActive=e.maxActive; game.entities.push(c);} 
     if(e.type==='hammer-bro') { const h=new HammerBro(e.x,e.y); if(e.jumpCd!=null) h.jumpCd=e.jumpCd; if(e.throwCd!=null) h.throwCd=e.throwCd; game.entities.push(h);} 
     if(e.type==='lakitu') { const l=new Lakitu(e.x,e.y); if(e.dropCd!=null) l.dropCd=e.dropCd; if(e.maxSpinyActive!=null) l.maxSpinyActive=e.maxSpinyActive; if(e.rangeTiles!=null) l.dropActiveRangeTiles=e.rangeTiles; game.entities.push(l);} 
     if(e.type==='spiny') game.entities.push(new Spiny(e.x,e.y));
@@ -86,7 +86,7 @@ function loadLevel(){
   game.state=GameState.Playing;
   game.score=0; game.coins=0; game.lives=Infinity; game.resetRequested=false; game.winStage=null;
   hudLevel.textContent = WORLD_MAP[game.currentLevelIndex]||'1-1';
-  const __meta = getLevelMeta?.(game.currentLevelIndex);
+  const __meta = (typeof getLevelMeta === 'function') ? getLevelMeta(game.currentLevelIndex) : undefined;
   const __tl = (level.timeLimit!=null) ? level.timeLimit : ((__meta && __meta.timeLimit)!=null? __meta.timeLimit : 300);
   game.time=game.timeMax=__tl;
   game.lowTimeThreshold = (level.lowTimeThreshold!=null) ? level.lowTimeThreshold : ((__meta && __meta.lowTimeThreshold)!=null ? __meta.lowTimeThreshold : GAME_CONFIG.lowTimeThreshold);
@@ -117,7 +117,7 @@ function step(dt){
   const prevVx = player.vx;
   if (player.grounded && input.jumpPressed) sfx.jump();
   player.update(dt, input, physics, level);
-  if (game.level?.theme !== 'water' && !input.jump && player.vy < -120) player.vy *= 0.7;
+  if ((game.level && game.level.theme) !== 'water' && !input.jump && player.vy < -120) player.vy *= 0.7;
   if (!wasGrounded && player.grounded) game.particles.spark(player.x + player.w/2, player.y + player.h, '#cbd5e1', 6);
   if (Math.abs(prevVx) > 150 && Math.sign(prevVx) !== Math.sign(player.vx) && player.grounded) game.particles.spark(player.x + player.w/2, player.y + player.h, '#94a3b8', 8);
 
@@ -125,7 +125,7 @@ function step(dt){
   game.time -= dt;
   if (game.time <= 0) { game.time = game.timeMax; player.respawnAtSaved(); showBanner('时间到！继续'); setTimeout(hideBanner, 800); }
   if (game.time <= game.lowTimeThreshold) { sfx.musicSpeedUp(); if (hudRoot) hudRoot.classList.add('hud-low-time'); }
-  else { sfx.musicNormal?.(); if (hudRoot) hudRoot.classList.remove('hud-low-time'); }
+  else { if (typeof sfx.musicNormal === 'function') sfx.musicNormal(); if (hudRoot) hudRoot.classList.remove('hud-low-time'); }
   const sec = Math.max(0, Math.ceil(game.time));
   if (game.lastTimeSec !== sec) { if (sec <= game.alertLastSeconds) sfx.alertBeep(); game.lastTimeSec = sec; }
   updateHUD();
@@ -158,13 +158,13 @@ function step(dt){
     const ry = cpt.y*TILE_SIZE - game.player.h - 2;
     game.player.respawnX = rx; game.player.respawnY = ry;
     // 存档checkpoint
-    try { const levelId = getLevelId?.(game.currentLevelIndex) || (WORLD_MAP[game.currentLevelIndex]||'1-1'); saveCheckpoint?.(levelId, { x: Math.floor(rx), y: Math.floor(ry) }); } catch {}
+    try { const levelId = (typeof getLevelId === 'function' ? getLevelId(game.currentLevelIndex) : undefined) || (WORLD_MAP[game.currentLevelIndex]||'1-1'); if (typeof saveCheckpoint === 'function') saveCheckpoint(levelId, { x: Math.floor(rx), y: Math.floor(ry) }); } catch {}
     level.set(cpt.x, cpt.y, '-');
     showBanner('到达中途旗'); setTimeout(hideBanner, 600);
   }
 
   // 更新实体与粒子
-  for (const ent of entities) ent.update?.(dt, physics, level, player, entities);
+  for (const ent of entities) { if (typeof ent.update === 'function') ent.update(dt, physics, level, player, entities); }
   game.particles.update(dt);
 
   // 子弹命中
@@ -213,7 +213,7 @@ function step(dt){
     else if (ent.kind === 'enemy' || ent.kind === 'koopa' || ent.kind === 'piranha' || ent.kind==='cheep' || ent.kind==='blooper' || ent.kind==='bill' || ent.kind==='hammer-bro' || ent.kind==='hammer' || ent.kind==='lakitu' || ent.kind==='spiny') {
       const stomping = (ent.kind !== 'piranha' && ent.kind !== 'spiny') && player.vy > 0 && player.bottom() - ent.top() < 16;
       if (stomping) { if (ent.kind === 'koopa') { ent.dead = true; entities.push(new Shell(ent.x, ent.y + ent.h - 22)); } else ent.dead = true; player.vy = -player.jumpSpeed * 0.6; game.score += 200; updateHUD(); sfx.stomp(); }
-      else { if (player.invincibleTime > 0) { ent.dead = true; game.score += 200; updateHUD(); } else if (player.canShoot) { player.canShoot = false; player.hurt?.(0.4); player.vy = -player.jumpSpeed * 0.3; } else if (player.powered) { player.setPowered(false); player.vy = -player.jumpSpeed * 0.5; } else { player.respawnAtSaved(); return; } }
+      else { if (player.invincibleTime > 0) { ent.dead = true; game.score += 200; updateHUD(); } else if (player.canShoot) { player.canShoot = false; if (typeof player.hurt === 'function') player.hurt(0.4); player.vy = -player.jumpSpeed * 0.3; } else if (player.powered) { player.setPowered(false); player.vy = -player.jumpSpeed * 0.5; } else { player.respawnAtSaved(); return; } }
     } else if (ent.kind === 'shell') {
       if (Math.abs(ent.vx) < 1) ent.vx = player.facing >= 0 ? 260 : -260; else if (player.invincibleTime <= 0) { if (player.canShoot) { player.canShoot = false; } else if (player.powered) player.setPowered(false); else { player.respawnAtSaved(); return; } }
     }
@@ -242,7 +242,7 @@ function step(dt){
     if (!game.winStage) {
       game.state = GameState.Win; game.winStage = 'slide';
       const poleTop=(flagTile.y*TILE_SIZE)-3*TILE_SIZE; const poleBottom=(flagTile.y*TILE_SIZE)+TILE_SIZE; const touchY=Math.min(Math.max(player.y+player.h/2, poleTop), poleBottom); const ratio=1-(touchY-poleTop)/(poleBottom-poleTop);
-      const __meta = getLevelMeta?.(game.currentLevelIndex); const tiers = (level.flagBonus)||((__meta && __meta.flagBonus) || [100,400,800,2000,5000]);
+      const __meta = (typeof getLevelMeta === 'function') ? getLevelMeta(game.currentLevelIndex) : undefined; const tiers = (level.flagBonus)||((__meta && __meta.flagBonus) || [100,400,800,2000,5000]);
       game.flagBonus = (ratio>0.9?tiers[4]: ratio>0.7?tiers[3]: ratio>0.5?tiers[2]: ratio>0.3?tiers[1]: tiers[0]);
       // 记录旗杆位置与触旗时的剩余整秒，供烟花判定
       game._flagX = flagTile.x*TILE_SIZE; game._timeAtFlagSec = Math.max(0, Math.ceil(game.time));
@@ -262,7 +262,7 @@ function step(dt){
         // 切入庆祝阶段（COURSE CLEAR!）
         game.winStage = 'celebrate';
         game.score += game.flagBonus; updateHUD(); sfx.win();
-        sfx.victoryJingle?.();
+        if (typeof sfx.victoryJingle === 'function') sfx.victoryJingle();
         const d = (game._timeAtFlagSec||0) % 10; game._fwRemain = (d===1?1:(d===3?3:(d===6?6:0))); game._fwTimer = 0; game._nextCountdown = 3; game._celebrateTick = 0;
         if (game.currentLevelIndex===0) { game._nextMsg='COURSE CLEAR! 1-1 通关！{n} 秒后进入 1-2（按 R 立即进入）'; game.currentLevelIndex=1; }
         else if (game.currentLevelIndex===1) { game._nextMsg='COURSE CLEAR! 1-2 通关！{n} 秒后进入 1-3（按 R 立即进入）'; game.currentLevelIndex=2; }
@@ -288,7 +288,7 @@ function step(dt){
       // 入门奔跑与淡出
       if (game._doorTimer!=null && game._doorTimer>0){ game._doorTimer-=dt; player.x = Math.min(player.x + 80*dt, level.cols*TILE_SIZE - player.w - 1); player.pose='run'; game._fadeAlpha = Math.min(1, (game._fadeAlpha||0) + dt/0.9); }
       if (game._celebrateTick>=1) { game._celebrateTick=0; game._nextCountdown = Math.max(0, (game._nextCountdown||0)-1); showBanner(game._nextMsg.replace('{n}', String(game._nextCountdown))); }
-      if ((game._nextCountdown||0) <= 0) { hideBanner(); try { saveCurrentLevel?.(game.currentLevelIndex); const levelId = getLevelId?.(game.currentLevelIndex); if (levelId) clearCheckpoint?.(levelId); } catch {}; loadLevel(); }
+      if ((game._nextCountdown||0) <= 0) { hideBanner(); try { if (typeof saveCurrentLevel === 'function') saveCurrentLevel(game.currentLevelIndex); const levelId2 = (typeof getLevelId === 'function') ? getLevelId(game.currentLevelIndex) : undefined; if (levelId2 && typeof clearCheckpoint === 'function') clearCheckpoint(levelId2); } catch {}; loadLevel(); }
     }
   }
 
