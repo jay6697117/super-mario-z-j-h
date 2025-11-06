@@ -92,6 +92,8 @@ export class Renderer {
     else if(ent.kind==='spiny'){ ctx.fillStyle='#ef4444'; ctx.fillRect(sx, sy, w, h); ctx.fillStyle='#7f1d1d'; ctx.fillRect(sx+3, sy+h-5, w-6, 3); }
     else if(ent.kind==='hammer-bro'){ ctx.fillStyle='#f59e0b'; ctx.fillRect(sx, sy, w, h); ctx.fillStyle='#78350f'; ctx.fillRect(sx+4, sy+h-6, w-8, 4); }
     else if(ent.kind==='hammer'){ ctx.fillStyle='#9ca3af'; ctx.fillRect(sx, sy, w, h); }
+    else if(ent.kind==='platform'){ ctx.fillStyle='#94a3b8'; ctx.fillRect(sx, sy, w, h); ctx.fillStyle='#11182722'; ctx.fillRect(sx, sy, w, 3); }
+    else if(ent.kind==='flame-spout'){ const r=ent.rect?.(); if(r){ const rx=Math.round(r.x- this.camera.x), ry=Math.round(r.y- this.camera.y); ctx.fillStyle='#ef4444'; ctx.fillRect(rx,ry,r.w,r.h); ctx.fillStyle='#fde68a'; ctx.fillRect(rx,ry,Math.max(2,Math.round(r.w*0.5)),Math.max(2,Math.round(r.h*0.5))); } }
   }
   _cloud(x,y){ const ctx=this.ctx; ctx.beginPath(); ctx.arc(x,y,18,0,Math.PI*2); ctx.arc(x+18,y+6,16,0,Math.PI*2); ctx.arc(x+36,y,20,0,Math.PI*2); ctx.fill(); }
   _hill(x,y){ const ctx=this.ctx; ctx.beginPath(); ctx.moveTo(x-60,y); ctx.lineTo(x,y-80); ctx.lineTo(x+80,y); ctx.closePath(); ctx.fill(); }

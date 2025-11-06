@@ -29,6 +29,9 @@ import { Cannon } from './entities/cannon.js';
 import { HammerBro } from './entities/hammer-bro.js';
 import { Lakitu } from './entities/lakitu.js';
 import { Spiny } from './entities/spiny.js';
+import { MovingPlatform } from './entities/platform.js';
+import { WarpZone } from './entities/warp.js';
+import { FlameSpout } from './entities/flame-spout.js';
 import { GameUI } from './engine/ui.js';
 import { LevelEditor } from './tools/editor.js';
 import { runTests } from './tools/tests.js';
@@ -45,7 +48,7 @@ const hudRoot = document.getElementById('hud');
 const GameState = { Playing: 'playing', Paused: 'paused', Win: 'win', Lose: 'lose', Select: 'select' };
 // 暴露测试入口
 try { window.runTests = runTests; } catch {}
-const game = { state: GameState.Playing, level:null, input:new Input(), renderer:new Renderer(canvas, ctx), physics:new Physics(), particles:new Particles(), player:null, entities:[], score:0, coins:0, lives:Infinity, resetRequested:false, currentLevelIndex:0, lastShotAt:0, time:300, timeMax:300, lastTimeSec:null, winStage:null, flagBonus:0, ui:new GameUI(ctx), lowTimeThreshold: GAME_CONFIG.lowTimeThreshold, alertLastSeconds: GAME_CONFIG.alertLastSeconds, timeBonusPerSecond: GAME_CONFIG.timeBonusPerSecond, editor:null };
+const game = { state: GameState.Playing, level:null, input:new Input(), renderer:new Renderer(canvas, ctx), physics:new Physics(), particles:new Particles(), player:null, entities:[], score:0, coins:0, lives: (GAME_CONFIG.livesEnabled? GAME_CONFIG.initialLives : Infinity), resetRequested:false, currentLevelIndex:0, lastShotAt:0, time:300, timeMax:300, lastTimeSec:null, winStage:null, flagBonus:0, ui:new GameUI(ctx), lowTimeThreshold: GAME_CONFIG.lowTimeThreshold, alertLastSeconds: GAME_CONFIG.alertLastSeconds, timeBonusPerSecond: GAME_CONFIG.timeBonusPerSecond, editor:null };
 
 function getLevelByIndex(i){ const m = ((i%4)+4)%4; if(m===0) return createLevel1(); if(m===1) return createLevel2(); if(m===2) return createLevel3(); if(m===3) return createLevel4(); return createLevel1(); }
 const WORLD_MAP = WORLD_MAP_DATA;
@@ -80,6 +83,10 @@ function loadLevel(){
     if(e.type==='hammer-bro') { const h=new HammerBro(e.x,e.y); if(e.jumpCd!=null) h.jumpCd=e.jumpCd; if(e.throwCd!=null) h.throwCd=e.throwCd; game.entities.push(h);} 
     if(e.type==='lakitu') { const l=new Lakitu(e.x,e.y); if(e.dropCd!=null) l.dropCd=e.dropCd; if(e.maxSpinyActive!=null) l.maxSpinyActive=e.maxSpinyActive; if(e.rangeTiles!=null) l.dropActiveRangeTiles=e.rangeTiles; game.entities.push(l);} 
     if(e.type==='spiny') game.entities.push(new Spiny(e.x,e.y));
+    if(e.type==='platform-h'){ const p=new MovingPlatform(e.x, e.y, e.w||48, e.h||12, 'h', e.range||96, e.speed||60); game.entities.push(p); }
+    if(e.type==='platform-v'){ const p=new MovingPlatform(e.x, e.y, e.w||48, e.h||12, 'v', e.range||96, e.speed||60); game.entities.push(p); }
+    if(e.type==='warp'){ const w={ kind:'warp', x:e.x, y:e.y, w:e.w||32, h:e.h||32, to: (typeof e.to==='number'?e.to:0) }; game.entities.push(w); }
+    if(e.type==='flame'){ const f=new FlameSpout(e.x, e.y, e.dir||'up', e.length||48, e.period||2.0, e.on||0.8); game.entities.push(f); }
   }
   game.renderer.setWorldSize(level.cols*TILE_SIZE, level.rows*TILE_SIZE);
   game.renderer.cameraFollow(game.player);
@@ -98,11 +105,23 @@ function loadLevel(){
   try { const label = WORLD_MAP[game.currentLevelIndex]||''; showBanner(`WORLD ${label}`); setTimeout(hideBanner, 800); } catch {}
   sfx.musicStart();
 }
-function updateHUD(){ hudScore.textContent=String(game.score); hudCoins.textContent=String(game.coins); hudLives.textContent='∞'; const tNode=document.getElementById('time'); if(tNode) tNode.textContent=String(Math.max(0, Math.ceil(game.time))); }
+function updateHUD(){ hudScore.textContent=String(game.score); hudCoins.textContent=String(game.coins); hudLives.textContent=(game.lives===Infinity?'∞':String(Math.max(0, game.lives))); const tNode=document.getElementById('time'); if(tNode) tNode.textContent=String(Math.max(0, Math.ceil(game.time))); }
 function showBanner(text){ banner.textContent=text; banner.style.display='flex'; }
 function hideBanner(){ banner.style.display='none'; }
 
-document.addEventListener('keydown', (e)=>{ sfx.initOnUserGesture(); const block=['Space','KeyX']; if(block.includes(e.code)) e.preventDefault(); if(e.code==='KeyP'){ if(game.state===GameState.Playing){ game.state=GameState.Paused; showBanner('已暂停 P 继续'); } else if (game.state===GameState.Paused){ game.state=GameState.Playing; hideBanner(); } } if(e.code==='KeyR'){ if(game.state===GameState.Win || game.state===GameState.Lose){ loadLevel(); hideBanner(); } else { game.resetRequested=true; } } if (e.code==='KeyE'){ if (!game.editor) game.editor = new LevelEditor(game, canvas, game.renderer); game.editor.toggle(); if (game.editor.active) showBanner('编辑器模式 E 退出'); else hideBanner(); } if (e.code==='KeyM'){ if (game.state!==GameState.Select){ game.state=GameState.Select; game._selectingWorld=true; showBanner('世界选择：按 1~8 跳转，M 退出'); } else { game.state=GameState.Playing; game._selectingWorld=false; hideBanner(); } } if (game._selectingWorld && /^Digit[1-8]$/.test(e.code)){ const idx=parseInt(e.code.slice(5))-1; game.currentLevelIndex=Math.max(0,Math.min(idx,7)); hideBanner(); game.state=GameState.Playing; loadLevel(); } if (e.code==='KeyO'){ // 快照下载
+function loseLife(reason){
+  // 统一掉命与复活逻辑
+  game.time = game.timeMax;
+  if (!GAME_CONFIG.livesEnabled || game.lives===Infinity){ game.player.respawnAtSaved(); showBanner('继续'); setTimeout(hideBanner, 800); return; }
+  game.lives = Math.max(0, (game.lives|0) - 1);
+  updateHUD();
+  if (game.lives > 0){ game.player.respawnAtSaved(); showBanner(`失去生命，剩余 ${game.lives}`); setTimeout(hideBanner, 800); }
+  else {
+    game.state = GameState.Lose; showBanner('GAME OVER - 按 R 继续');
+  }
+}
+
+document.addEventListener('keydown', (e)=>{ sfx.initOnUserGesture(); const block=['Space','KeyX']; if(block.includes(e.code)) e.preventDefault(); if(e.code==='KeyP'){ if(game.state===GameState.Playing){ game.state=GameState.Paused; showBanner('已暂停 P 继续'); } else if (game.state===GameState.Paused){ game.state=GameState.Playing; hideBanner(); } } if(e.code==='KeyR'){ if(game.state===GameState.Win || game.state===GameState.Lose){ if (game.state===GameState.Lose && GAME_CONFIG.livesEnabled){ game.lives = GAME_CONFIG.initialLives|0; updateHUD(); } loadLevel(); hideBanner(); } else { game.resetRequested=true; } } if (e.code==='KeyE'){ if (!game.editor) game.editor = new LevelEditor(game, canvas, game.renderer); game.editor.toggle(); if (game.editor.active) showBanner('编辑器模式 E 退出'); else hideBanner(); } if (e.code==='KeyM'){ if (game.state!==GameState.Select){ game.state=GameState.Select; game._selectingWorld=true; showBanner('世界选择：按 1~8 跳转，M 退出'); } else { game.state=GameState.Playing; game._selectingWorld=false; hideBanner(); } } if (game._selectingWorld && /^Digit[1-8]$/.test(e.code)){ const idx=parseInt(e.code.slice(5))-1; game.currentLevelIndex=Math.max(0,Math.min(idx,7)); hideBanner(); game.state=GameState.Playing; loadLevel(); } if (e.code==='KeyO'){ // 快照下载
   const a=document.createElement('a'); a.href=canvas.toDataURL('image/png'); a.download=`snapshot-${Date.now()}.png`; a.click(); } });
 const touch=document.getElementById('touch'); if(touch){ const apply=(el,on)=>{ const key=el.dataset.key; const handler=(ev)=>{ ev.preventDefault(); game.input.setVirtual(key,on);} ; el.addEventListener('touchstart',handler,{passive:false}); el.addEventListener('touchend',(ev)=>{ev.preventDefault(); game.input.setVirtual(key,false);},{passive:false}); el.addEventListener('touchcancel',(ev)=>{ev.preventDefault(); game.input.setVirtual(key,false);},{passive:false}); el.addEventListener('mousedown',handler); el.addEventListener('mouseup',()=>game.input.setVirtual(key,false)); el.addEventListener('mouseleave',()=>game.input.setVirtual(key,false)); }; touch.querySelectorAll('button').forEach((btn)=>apply(btn,true)); }
 
@@ -113,9 +132,12 @@ function step(dt){
   const { level, player, entities, input, physics } = game;
   // 输入与玩家
   input.update();
+  const prevBottom = player.y + player.h;
   const wasGrounded = player.grounded;
   const prevVx = player.vx;
   if (player.grounded && input.jumpPressed) sfx.jump();
+  // 先更新移动平台位置
+  for (const ent of entities) { if (ent.kind==='platform' && typeof ent.update==='function') ent.update(dt); }
   player.update(dt, input, physics, level);
   if ((game.level && game.level.theme) !== 'water' && !input.jump && player.vy < -120) player.vy *= 0.7;
   if (!wasGrounded && player.grounded) game.particles.spark(player.x + player.w/2, player.y + player.h, '#cbd5e1', 6);
@@ -123,7 +145,7 @@ function step(dt){
 
   // 计时与HUD
   game.time -= dt;
-  if (game.time <= 0) { game.time = game.timeMax; player.respawnAtSaved(); showBanner('时间到！继续'); setTimeout(hideBanner, 800); }
+  if (game.time <= 0) { loseLife('timeout'); }
   if (game.time <= game.lowTimeThreshold) { sfx.musicSpeedUp(); if (hudRoot) hudRoot.classList.add('hud-low-time'); }
   else { if (typeof sfx.musicNormal === 'function') sfx.musicNormal(); if (hudRoot) hudRoot.classList.remove('hud-low-time'); }
   const sec = Math.max(0, Math.ceil(game.time));
@@ -167,6 +189,23 @@ function step(dt){
   for (const ent of entities) { if (typeof ent.update === 'function') ent.update(dt, physics, level, player, entities); }
   game.particles.update(dt);
 
+  // 平台承载：从上方落到平台则站稳并随平台移动
+  for (const ent of entities) {
+    if (ent.kind !== 'platform') continue;
+    const overlap = !(player.x + player.w <= ent.x || player.x >= ent.x + ent.w || player.y + player.h <= ent.y || player.y >= ent.y + ent.h);
+    if (overlap) {
+      const wasAbove = prevBottom <= ent.y + 4 && player.vy >= 0;
+      if (wasAbove) {
+        player.y = ent.y - player.h; player.vy = 0; player.grounded = true;
+        // 随平台水平移动
+        if (ent.dx) player.x += ent.dx;
+      } else {
+        // 简单侧向分离，避免夹入
+        if (player.x + player.w/2 < ent.x + ent.w/2) player.x = ent.x - player.w - 0.01; else player.x = ent.x + ent.w + 0.01;
+      }
+    }
+  }
+
   // 子弹命中
   for (const ent of entities) {
     if (ent.kind !== 'bullet' || ent.dead) continue;
@@ -200,7 +239,15 @@ function step(dt){
     if (ent.kind !== 'firebar') continue;
     const balls = ent.balls(TILE_SIZE);
     const px = player.x + player.w/2, py = player.y + player.h/2; const pr = Math.min(player.w, player.h) * 0.45;
-    for (const b of balls) { const dx = px - b.cx, dy = py - b.cy; if (dx*dx + dy*dy <= (pr + b.radius)*(pr + b.radius)) { if (player.invincibleTime > 0) {} else if (player.powered) { player.setPowered(false); } else { player.respawnAtSaved(); return; } } }
+    for (const b of balls) { const dx = px - b.cx, dy = py - b.cy; if (dx*dx + dy*dy <= (pr + b.radius)*(pr + b.radius)) { if (player.invincibleTime > 0) {} else if (player.powered) { player.setPowered(false); } else { loseLife('hazard'); return; } } }
+  }
+
+  // 火焰喷口碰撞（矩形）
+  for (const ent of entities) {
+    if (ent.kind!=='flame-spout') continue;
+    const r = ent.rect?.(); if (!r) continue;
+    const overlap = !(player.x + player.w <= r.x || player.x >= r.x + r.w || player.y + player.h <= r.y || player.y >= r.y + r.h);
+    if (overlap) { if (player.invincibleTime>0) {} else if (player.powered) { player.setPowered(false); } else { loseLife('flame'); return; } }
   }
 
   // 玩家与实体交互
@@ -213,7 +260,7 @@ function step(dt){
     else if (ent.kind === 'enemy' || ent.kind === 'koopa' || ent.kind === 'piranha' || ent.kind==='cheep' || ent.kind==='blooper' || ent.kind==='bill' || ent.kind==='hammer-bro' || ent.kind==='hammer' || ent.kind==='lakitu' || ent.kind==='spiny') {
       const stomping = (ent.kind !== 'piranha' && ent.kind !== 'spiny') && player.vy > 0 && player.bottom() - ent.top() < 16;
       if (stomping) { if (ent.kind === 'koopa') { ent.dead = true; entities.push(new Shell(ent.x, ent.y + ent.h - 22)); } else ent.dead = true; player.vy = -player.jumpSpeed * 0.6; game.score += 200; updateHUD(); sfx.stomp(); }
-      else { if (player.invincibleTime > 0) { ent.dead = true; game.score += 200; updateHUD(); } else if (player.canShoot) { player.canShoot = false; if (typeof player.hurt === 'function') player.hurt(0.4); player.vy = -player.jumpSpeed * 0.3; } else if (player.powered) { player.setPowered(false); player.vy = -player.jumpSpeed * 0.5; } else { player.respawnAtSaved(); return; } }
+      else { if (player.invincibleTime > 0) { ent.dead = true; game.score += 200; updateHUD(); } else if (player.canShoot) { player.canShoot = false; if (typeof player.hurt === 'function') player.hurt(0.4); player.vy = -player.jumpSpeed * 0.3; } else if (player.powered) { player.setPowered(false); player.vy = -player.jumpSpeed * 0.5; } else { loseLife('enemy'); return; } }
     } else if (ent.kind === 'shell') {
       if (Math.abs(ent.vx) < 1) ent.vx = player.facing >= 0 ? 260 : -260; else if (player.invincibleTime <= 0) { if (player.canShoot) { player.canShoot = false; } else if (player.powered) player.setPowered(false); else { player.respawnAtSaved(); return; } }
     }
@@ -300,6 +347,17 @@ function step(dt){
   if (pipe && input.downPressed && typeof level.activate==='function' && level.activeRoom==='main' && level.sub) { level.activate('sub'); game.renderer.setWorldSize(level.cols*TILE_SIZE, level.rows*TILE_SIZE); game.player.x = level.spawn.x; game.player.y = level.spawn.y; game.player.vx = 0; game.player.vy = 0; if (!level._spawnedSub && level.getSpawns) { for (const e of level.getSpawns()) { if (e.type==='enemy') entities.push(new Enemy(e.x,e.y)); if (e.type==='coin') entities.push(new Coin(e.x,e.y)); if (e.type==='mushroom') entities.push(new Mushroom(e.x,e.y)); if (e.type==='koopa') entities.push(new Koopa(e.x,e.y)); if (e.type==='star') entities.push(new Star(e.x,e.y)); } level._spawnedSub = true; } showBanner('进入地下'); setTimeout(hideBanner, 600); }
   const exit = physics.rectFindTile(player, level, (t)=>t==='X');
   if (exit && typeof level.activate==='function' && level.activeRoom==='sub') { level.activate('main'); game.renderer.setWorldSize(level.cols*TILE_SIZE, level.rows*TILE_SIZE); game.player.x = level.returnPoint ? level.returnPoint.x : level.spawn.x; game.player.y = level.returnPoint ? level.returnPoint.y : level.spawn.y; game.player.vx = 0; game.player.vy = 0; showBanner('返回地面'); setTimeout(hideBanner, 600); }
+
+  // Warp 区触发
+  for (const ent of entities) {
+    if (ent.kind==='warp') {
+      const inside = !(player.x + player.w <= ent.x || player.x >= ent.x + ent.w || player.y + player.h <= ent.y || player.y >= ent.y + ent.h);
+      if (inside && input.downPressed) {
+        const to = Math.max(0, Math.min(ent.to|0, WORLD_MAP.length-1));
+        game.currentLevelIndex = to; hideBanner(); loadLevel(); return;
+      }
+    }
+  }
 
   // 摄像机
   game.renderer.cameraFollow(player);

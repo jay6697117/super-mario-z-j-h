@@ -29,7 +29,12 @@
    - 实体渲染早退（已接入）：在 Renderer.drawEntity 做可见性裁剪（完全离屏不绘制），降低复杂场景下渲染成本；
    - 子弹/壳对新敌人的交互覆盖；水下与地上行为边界验证；通关后清理下一关 checkpoint。
    - 编辑器预设（已接入）：地面/地下/水下/城堡一键设置主题与时间阈值。
-4. E：轻量关卡编辑器（已接入，E 键开启/关闭，支持地块与刷怪放置、导出/导入 JSON；刷怪参数可编辑：cannon(dir/period/range/maxActive)、firebar(segments/speed)、lakitu(dropCd)、cheep(dir)、hammer-bro(jumpCd/throwCd)），渲染快照（O 键下载当前画面），最小测试入口（控制台 runTests）。
+4. 新增内容（本周期一次性落地）：
+   - 移动平台（已接入）：水平/垂直往返，承载玩家（从上方落下站稳，随平台移动）；编辑器参数（range/speed/w/h）。
+   - 火焰喷口（已接入）：周期喷火（up/down/left/right），接触受伤/死亡；编辑器参数（dir/length/period/on）。
+   - Warp Zone（已接入）：矩形触发器，按下进入目标关卡；编辑器参数（to/w/h）。
+   - 生命与 Continue（已接入）：默认开启，初始 3 条；死亡扣命，归零进入 GAME OVER，按 R 继续从当前关卡（可关闭 livesEnabled 获得 ∞）。
+5. E：轻量关卡编辑器（已接入，E 键开启/关闭，支持地块与刷怪放置、导出/导入 JSON；刷怪参数可编辑：cannon(dir/period/range/maxActive)、firebar(segments/speed)、lakitu(dropCd)、cheep(dir)、hammer-bro(jumpCd/throwCd)、platform(range/speed/size)、warp(to/size)、flame(dir/length/period/on)），渲染快照（O 键下载当前画面），最小测试入口（控制台 runTests）。
 
 ## 验收标准
 - Lakitu/Spiny 行为稳定：Lakitu 会在玩家上方飘移并周期抛出 Spiny；Spiny 地面巡逻且不可踩。
@@ -38,7 +43,7 @@
 - 炮台、Bill、Hammer Bro 与子弹/壳交互覆盖完整，60fps 下稳定。
 - 摄像机：水平方向速度变化无突跳，垂直切换平滑；切关/子房间切换后 300ms 内稳定落位；世界边缘无黑边抖动。
 - 性能：相同实体数量下，渲染平均耗时下降，长帧减少（可用 DevTools 对比 Before/After）。
-- 测试：控制台 `runTests()` 通过包含 Lakitu/Piranha/子弹/壳/踩踏边界、1‑3 时限元数据校验与“渲染快照（关键像素对比）”。
+- 测试：控制台 `runTests()` 通过包含 Lakitu/Piranha/子弹/壳/踩踏边界、1‑3 时限元数据校验与“渲染快照（关键像素对比）”；新增移动平台落地判定。
 
 ## 备注
 - 保持零外部依赖；音频以 WebAudio 合成为主；

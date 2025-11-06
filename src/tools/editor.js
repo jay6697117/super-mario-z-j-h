@@ -42,7 +42,7 @@ import { TILE_SIZE } from '../constants.js';
     const levelHost = wrap.querySelector('#ed-level-settings');
     const refillType = ()=>{
       typeSel.innerHTML='';
-      const list = this.mode==='tile' ? ['#','B','Q','V','X','F','A','K'] : ['enemy','koopa','coin','mushroom','flower','piranha','cheep','blooper','cannon','hammer-bro','lakitu','spiny','star','firebar'];
+      const list = this.mode==='tile' ? ['#','B','Q','V','X','F','A','K'] : ['enemy','koopa','coin','mushroom','flower','piranha','cheep','blooper','cannon','hammer-bro','lakitu','spiny','star','firebar','platform-h','platform-v','warp','flame'];
       for(const t of list){ const opt=document.createElement('option'); opt.value=t; opt.textContent=t; typeSel.appendChild(opt);} typeSel.value = this.mode==='tile'?this.tileType:this.spawnType;
       this.renderParams(paramsHost);
       this.renderLevelSettings(levelHost);
@@ -72,6 +72,9 @@ import { TILE_SIZE } from '../constants.js';
         else { if(!Array.isArray(level.spawns)) level.spawns=[]; const s={ type:this.spawnType, x:cx, y:cy };
           if(this.spawnType==='firebar'){ s.segments=6; s.speed=2.0; }
           if(this.spawnType==='cannon'){ s.dir=-1; s.period=2.2; }
+          if(this.spawnType==='platform-h'){ s.range=96; s.speed=60; s.w=48; s.h=12; }
+          if(this.spawnType==='platform-v'){ s.range=96; s.speed=60; s.w=48; s.h=12; }
+          if(this.spawnType==='warp'){ s.to=0; s.w=32; s.h=32; }
           level.spawns.push(s); this._selected=s; this.renderParams(this._ui.querySelector('#ed-params')); }
       } }
   }
@@ -96,6 +99,12 @@ import { TILE_SIZE } from '../constants.js';
       html = `方向:<select id="p-dir"><option value="-1">左</option><option value="1">右</option></select> 周期:<input id="p-period" type="number" step="0.1" style="width:60px" /> 视距:<input id="p-range" type="number" step="10" style="width:60px" /> 上限:<input id="p-max" type="number" step="1" style="width:60px" /> <button id="p-apply">应用</button> <button id="p-del">删除</button>`;
     } else if (s.type==='firebar'){
       html = `节数:<input id="p-seg" type="number" step="1" style="width:60px" /> 速度:<input id="p-speed" type="number" step="0.1" style="width:60px" /> <button id="p-apply">应用</button> <button id="p-del">删除</button>`;
+    } else if (s.type==='platform-h' || s.type==='platform-v'){
+      html = `范围:<input id="p-range" type="number" step="10" style="width:60px" /> 速度:<input id="p-speed" type="number" step="1" style="width:60px" /> 宽:<input id="p-w" type="number" step="1" style="width:60px" /> 高:<input id="p-h" type="number" step="1" style="width:60px" /> <button id="p-apply">应用</button> <button id="p-del">删除</button>`;
+    } else if (s.type==='warp'){
+      html = `目标关索引:<input id="p-to" type="number" step="1" style="width:60px" /> 宽:<input id="p-w" type="number" step="1" style="width:60px" /> 高:<input id="p-h" type="number" step="1" style="width:60px" /> <button id="p-apply">应用</button> <button id="p-del">删除</button>`;
+    } else if (s.type==='flame'){
+      html = `方向:<select id="p-dir"><option value="up">up</option><option value="down">down</option><option value="left">left</option><option value="right">right</option></select> 长度:<input id="p-len" type="number" step="1" style="width:60px" /> 周期:<input id="p-per" type="number" step="0.1" style="width:60px" /> 开启比:<input id="p-on" type="number" step="0.1" style="width:60px" /> <button id="p-apply">应用</button> <button id="p-del">删除</button>`;
     } else if (s.type==='lakitu'){
       html = `投掷间隔:<input id="p-drop" type="number" step="0.1" style="width:60px" /> 上限:<input id="p-maxsp" type="number" step="1" style="width:60px" /> 范围格:<input id="p-rangeTiles" type="number" step="1" style="width:60px" /> <button id="p-apply">应用</button> <button id="p-del">删除</button>`;
     } else if (s.type==='piranha'){
@@ -109,6 +118,9 @@ import { TILE_SIZE } from '../constants.js';
     const byId=(id)=>host.querySelector(id);
     if (s.type==='cannon'){ const dir=byId('#p-dir'); const period=byId('#p-period'); const rng=byId('#p-range'); const mx=byId('#p-max'); dir.value=String(s.dir ?? -1); period.value=String(s.period ?? 2.2); if(rng) rng.value=String(s.range ?? 320); if(mx) mx.value=String(s.maxActive ?? 2); byId('#p-apply').onclick=()=>{ s.dir=parseInt(dir.value)||-1; s.period=parseFloat(period.value)||2.2; if(rng) s.range=Math.max(0, parseFloat(rng.value)||320); if(mx) s.maxActive=Math.max(0, parseInt(mx.value)||2); } }
     if (s.type==='firebar'){ const seg=byId('#p-seg'); const sp=byId('#p-speed'); seg.value=String(s.segments ?? 6); sp.value=String(s.speed ?? 2.0); byId('#p-apply').onclick=()=>{ s.segments=Math.max(1, parseInt(seg.value)||6); s.speed=parseFloat(sp.value)||2.0; } }
+    if (s.type==='platform-h' || s.type==='platform-v'){ const rg=byId('#p-range'); const sp=byId('#p-speed'); const w=byId('#p-w'); const h=byId('#p-h'); rg.value=String(s.range ?? 96); sp.value=String(s.speed ?? 60); w.value=String(s.w ?? 48); h.value=String(s.h ?? 12); byId('#p-apply').onclick=()=>{ s.range=Math.max(0, parseFloat(rg.value)||96); s.speed=Math.max(0, parseFloat(sp.value)||60); s.w=Math.max(4, parseInt(w.value)||48); s.h=Math.max(4, parseInt(h.value)||12); } }
+    if (s.type==='warp'){ const to=byId('#p-to'); const w=byId('#p-w'); const h=byId('#p-h'); to.value=String(s.to ?? 0); w.value=String(s.w ?? 32); h.value=String(s.h ?? 32); byId('#p-apply').onclick=()=>{ s.to=Math.max(0, parseInt(to.value)||0); s.w=Math.max(8, parseInt(w.value)||32); s.h=Math.max(8, parseInt(h.value)||32); } }
+    if (s.type==='flame'){ const d=byId('#p-dir'); const l=byId('#p-len'); const p=byId('#p-per'); const o=byId('#p-on'); d.value=String(s.dir ?? 'up'); l.value=String(s.length ?? 48); p.value=String(s.period ?? 2.0); o.value=String(s.on ?? 0.8); byId('#p-apply').onclick=()=>{ s.dir=d.value; s.length=Math.max(8, parseInt(l.value)||48); s.period=Math.max(0.2, parseFloat(p.value)||2.0); s.on=Math.min(5, Math.max(0, parseFloat(o.value)||0.8)); } }
     if (s.type==='lakitu'){ const d=byId('#p-drop'); const m=byId('#p-maxsp'); const r=byId('#p-rangeTiles'); d.value=String(s.dropCd ?? 1.8); if(m) m.value=String(s.maxSpinyActive ?? 3); if(r) r.value=String(s.rangeTiles ?? 18); byId('#p-apply').onclick=()=>{ s.dropCd=Math.max(0.1, parseFloat(d.value)||1.8); if(m) s.maxSpinyActive=Math.max(0, parseInt(m.value)||3); if(r) s.rangeTiles=Math.max(1, parseInt(r.value)||18); } }
     if (s.type==='piranha'){ const up=byId('#p-up'), dn=byId('#p-down'), hu=byId('#p-hup'), hd=byId('#p-hdown'), nx=byId('#p-nx'), ny=byId('#p-ny'); if(up) up.value=String(s.upTime ?? ''); if(dn) dn.value=String(s.downTime ?? ''); if(hu) hu.value=String(s.holdUp ?? ''); if(hd) hd.value=String(s.holdDown ?? ''); if(nx) nx.value=String(s.nearTilesX ?? ''); if(ny) ny.value=String(s.nearYOffset ?? ''); byId('#p-apply').onclick=()=>{ if(up&&up.value!=='') s.upTime=Math.max(0.1, parseFloat(up.value)||0.9); else s.upTime=undefined; if(dn&&dn.value!=='') s.downTime=Math.max(0.1, parseFloat(dn.value)||0.9); else s.downTime=undefined; if(hu&&hu.value!=='') s.holdUp=Math.max(0, parseFloat(hu.value)||0.6); else s.holdUp=undefined; if(hd&&hd.value!=='') s.holdDown=Math.max(0, parseFloat(hd.value)||0.7); else s.holdDown=undefined; if(nx&&nx.value!=='') s.nearTilesX=Math.max(0.5, parseFloat(nx.value)||1.5); else s.nearTilesX=undefined; if(ny&&ny.value!=='') s.nearYOffset=Math.max(0, parseInt(ny.value)||6); else s.nearYOffset=undefined; } }
     if (s.type==='cheep'){ const dir=byId('#p-dir'); dir.value=String(s.dir ?? -1); byId('#p-apply').onclick=()=>{ s.dir=parseInt(dir.value)||-1; } }

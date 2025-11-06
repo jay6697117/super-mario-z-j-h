@@ -62,10 +62,10 @@ export function runTests(){
   results.push(['lakitu-max-active', after===before]);
 
   // Bullet 命中 Lakitu/Spiny：按主循环的种类过滤应致死
-  const b = new Bullet(50,50,1); b.vx=0; b.vy=0; const lak2 = new Lakitu(50,50); const sp2={kind:'spiny',x:52,y:50,w:24,h:20,dead:false};
+  const bullet = new Bullet(50,50,1); bullet.vx=0; bullet.vy=0; const lak2 = new Lakitu(50,50); const sp2={kind:'spiny',x:52,y:50,w:24,h:20,dead:false};
   const kinds = (t)=> (t.kind==='enemy'||t.kind==='koopa'||t.kind==='shell'||t.kind==='cheep'||t.kind==='blooper'||t.kind==='bill'||t.kind==='hammer-bro'||t.kind==='lakitu'||t.kind==='spiny');
-  if (physics.aabbOverlap(b,lak2) && kinds(lak2)) lak2.dead=true;
-  if (physics.aabbOverlap(b,sp2) && kinds(sp2)) sp2.dead=true;
+  if (physics.aabbOverlap(bullet,lak2) && kinds(lak2)) lak2.dead=true;
+  if (physics.aabbOverlap(bullet,sp2) && kinds(sp2)) sp2.dead=true;
   results.push(['bullet-kills-lakitu', lak2.dead===true]);
   results.push(['bullet-kills-spiny', sp2.dead===true]);
 
@@ -93,6 +93,14 @@ export function runTests(){
     const data = ctx.getImageData(px, py, 1, 1).data; const toHex=(v)=>v.toString(16).padStart(2,'0'); const hex = `#${toHex(data[0])}${toHex(data[1])}${toHex(data[2])}`;
     results.push(['snapshot-brick-center', hex.toLowerCase()==='#a16207']);
   } catch(err){ results.push(['snapshot-brick-center', false]); }
+
+  // 移动平台：从上方落下应站稳
+  const plat={ kind:'platform', x: 32, y: 64, w: 48, h: 12, dx:0, dy:0 };
+  const pl={ x: 36, y: 40, w: 16, h: 16, vy: 100 };
+  const overlap = !(pl.x + pl.w <= plat.x || pl.x >= plat.x + plat.w || pl.y + pl.h <= plat.y || pl.y >= plat.y + plat.h);
+  const wasAbove = (pl.y + pl.h) <= plat.y + 4 && pl.vy >= 0;
+  const stable = overlap && wasAbove;
+  results.push(['platform-stand', stable===true]);
   const failed=results.filter(([,ok])=>!ok);
   console.table(results.map(([name,ok])=>({name, ok}))); if(failed.length===0) console.log('所有测试通过'); else console.warn('失败用例', failed);
 }

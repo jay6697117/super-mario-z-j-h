@@ -4,6 +4,9 @@ export const GAME_CONFIG = {
   lowTimeThreshold: 100,     // 低时限阈值，加速BGM
   alertLastSeconds: 10,      // 最后N秒每秒蜂鸣
   flagSlideSpeed: 220,       // 滑旗向下速度（像素/秒）
+  // 生命与 Continue
+  livesEnabled: true,
+  initialLives: 3,
   // 结算面板（数码管）
   settleDigitsScore: 6,      // 分数显示位数
   settleDigitsTime: 3,       // 时间显示位数
