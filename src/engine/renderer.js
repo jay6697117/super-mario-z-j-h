@@ -1,9 +1,19 @@
 import { TILE_SIZE } from '../constants.js';
 
 export class Renderer {
-  constructor(canvas, ctx) { this.canvas = canvas; this.ctx = ctx; this.camera = { x:0, y:0, w:canvas.width, h:canvas.height }; this.world={w:canvas.width,h:canvas.height}; }
+  constructor(canvas, ctx) { this.canvas = canvas; this.ctx = ctx; this.camera = { x:0, y:0, w:canvas.width, h:canvas.height }; this.world={w:canvas.width,h:canvas.height}; this._target={x:0,y:0}; }
   setWorldSize(w,h){ this.world.w=w; this.world.h=h; }
-  cameraFollow(target){ const cx=target.x+target.w/2-this.canvas.width/2; const cy=target.y+target.h/2-this.canvas.height/2; this.camera.x=Math.max(0,Math.min(cx,this.world.w-this.canvas.width)); this.camera.y=Math.max(0,Math.min(cy,this.world.h-this.canvas.height)); }
+  cameraFollow(target){ // 设定目标位置（含速度前瞻）
+    const look = (target.vx||0) * 0.25;
+    const cx=target.x + target.w/2 + look - this.canvas.width/2;
+    const cy=target.y + target.h/2 - this.canvas.height/2;
+    this._target.x = Math.max(0,Math.min(cx,this.world.w-this.canvas.width));
+    this._target.y = Math.max(0,Math.min(cy,this.world.h-this.canvas.height));
+  }
+  updateCamera(dt){ const s=1-Math.pow(0.001, dt*60); // 平滑插值（60fps 基准）
+    this.camera.x += (this._target.x - this.camera.x)*s;
+    this.camera.y += (this._target.y - this.camera.y)*s;
+  }
   clear(){ this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height); }
   drawBackground(level){ const ctx=this.ctx; const theme = (level?.theme) || (level?.activeRoom==='sub' ? 'underground' : 'sky');
     if (theme === 'castle') { const g=ctx.createLinearGradient(0,0,0,this.canvas.height); g.addColorStop(0,'#1f2937'); g.addColorStop(1,'#111827'); ctx.fillStyle=g; ctx.fillRect(0,0,this.canvas.width,this.canvas.height); }

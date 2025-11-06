@@ -81,6 +81,7 @@ function step(dt){ const { level, player, entities, input, physics } = game; inp
   const exit=physics.rectFindTile(player, level, (t)=>t==='X'); if(exit && typeof level.activate==='function' && level.activeRoom==='sub'){ level.activate('main'); game.renderer.setWorldSize(level.cols*TILE_SIZE, level.rows*TILE_SIZE); game.player.x= level.returnPoint? level.returnPoint.x: level.spawn.x; game.player.y= level.returnPoint? level.returnPoint.y: level.spawn.y; game.player.vx=0; game.player.vy=0; showBanner('返回地面'); setTimeout(hideBanner,600); }
   // 摄像机
   game.renderer.cameraFollow(player);
+  game.renderer.updateCamera(dt);
 }
 
 function render(){ const { renderer, level, player, entities } = game; renderer.clear(); renderer.drawBackground(level); renderer.drawLevel(level); for(const ent of entities) renderer.drawEntity(ent); renderer.drawEntity(player); game.particles.draw(renderer.ctx, renderer.camera); }
