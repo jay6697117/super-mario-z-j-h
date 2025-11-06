@@ -107,7 +107,8 @@ function loadLevel(){
 }
 function updateHUD(){
   const addFX=(el)=>{ try{ el.classList.remove('bump'); el.classList.remove('flip'); void el.offsetWidth; el.classList.add('bump'); el.classList.add('flip'); }catch{} };
-  if (hudScore){ const prev=game._hudPrevScore; const v=String(game.score); hudScore.textContent=v; if(prev!==undefined && prev!=v) addBump(hudScore); game._hudPrevScore=v; }
+  // 分数变更时添加HUD轻微动效
+  if (hudScore){ const prev=game._hudPrevScore; const v=String(game.score); hudScore.textContent=v; if(prev!==undefined && prev!=v) addFX(hudScore); game._hudPrevScore=v; }
   if (hudCoins){ const prev=game._hudPrevCoins; const v=String(game.coins); hudCoins.textContent=v; if(prev!==undefined && prev!=v) addFX(hudCoins); game._hudPrevCoins=v; }
   if (hudLives){ const prev=game._hudPrevLives; const v=(game.lives===Infinity?'∞':String(Math.max(0, game.lives))); hudLives.textContent=v; if(prev!==undefined && prev!=v) addFX(hudLives); game._hudPrevLives=v; }
   const tNode=document.getElementById('time'); if(tNode){ const v=String(Math.max(0, Math.ceil(game.time))); if (tNode.textContent!==v){ tNode.textContent=v; addFX(tNode); } }
