@@ -222,6 +222,7 @@ function step(dt){
       const start=Math.max(0, axeTile.x-10), end=Math.max(0, axeTile.x-1);
       game._collapse={ row, cols:[], idx:0, timer:0 };
       for(let c=end;c>=start;c--) game._collapse.cols.push(c);
+      game._timeAtFlagSec = Math.max(0, Math.ceil(game.time));
     }
     if (game.winStage==='castle_collapse'){
       game._collapse.timer += dt;
@@ -232,7 +233,15 @@ function step(dt){
   // 旗杆演出与推进
   const flagTile = physics.rectFindTile(player, level, (t)=>t==='F');
   if (flagTile) {
-    if (!game.winStage) { game.state = GameState.Win; game.winStage = 'slide'; const poleTop=(flagTile.y*TILE_SIZE)-3*TILE_SIZE; const poleBottom=(flagTile.y*TILE_SIZE)+TILE_SIZE; const touchY=Math.min(Math.max(player.y+player.h/2, poleTop), poleBottom); const ratio=1-(touchY-poleTop)/(poleBottom-poleTop); const __meta = getLevelMeta?.(game.currentLevelIndex); const tiers = (level.flagBonus)||((__meta && __meta.flagBonus) || [100,400,800,2000,5000]); game.flagBonus = (ratio>0.9?tiers[4]: ratio>0.7?tiers[3]: ratio>0.5?tiers[2]: ratio>0.3?tiers[1]: tiers[0]); player.x = flagTile.x*TILE_SIZE + TILE_SIZE*0.45 - player.w/2; player.vx=0; player.vy=0; game._flagBottom=(flagTile.y*TILE_SIZE)+TILE_SIZE - player.h - 2; }
+    if (!game.winStage) {
+      game.state = GameState.Win; game.winStage = 'slide';
+      const poleTop=(flagTile.y*TILE_SIZE)-3*TILE_SIZE; const poleBottom=(flagTile.y*TILE_SIZE)+TILE_SIZE; const touchY=Math.min(Math.max(player.y+player.h/2, poleTop), poleBottom); const ratio=1-(touchY-poleTop)/(poleBottom-poleTop);
+      const __meta = getLevelMeta?.(game.currentLevelIndex); const tiers = (level.flagBonus)||((__meta && __meta.flagBonus) || [100,400,800,2000,5000]);
+      game.flagBonus = (ratio>0.9?tiers[4]: ratio>0.7?tiers[3]: ratio>0.5?tiers[2]: ratio>0.3?tiers[1]: tiers[0]);
+      // 记录旗杆位置与触旗时的剩余整秒，供烟花判定
+      game._flagX = flagTile.x*TILE_SIZE; game._timeAtFlagSec = Math.max(0, Math.ceil(game.time));
+      player.x = flagTile.x*TILE_SIZE + TILE_SIZE*0.45 - player.w/2; player.vx=0; player.vy=0; game._flagBottom=(flagTile.y*TILE_SIZE)+TILE_SIZE - player.h - 2;
+    }
     if (game.winStage === 'slide') { if (player.y < game._flagBottom) { player.y = Math.min(game._flagBottom, player.y + GAME_CONFIG.flagSlideSpeed*dt); player.pose='slide'; } else game.winStage = 'count'; }
     else if (game.winStage === 'count') {
       if (game.time > 0) {
@@ -244,15 +253,31 @@ function step(dt){
         if (delta>0) { game.score += delta * (game.timeBonusPerSecond||GAME_CONFIG.timeBonusPerSecond); sfx.alertBeep(); }
         updateHUD();
       } else {
-        game.winStage = 'done';
-        game.score += game.flagBonus;
-        updateHUD(); sfx.win();
-        if (game.currentLevelIndex===0) { showBanner('1-1 通关！R 进入 1-2'); game.currentLevelIndex=1; }
-        else if (game.currentLevelIndex===1) { showBanner('1-2 通关！R 进入 1-3'); game.currentLevelIndex=2; }
-        else if (game.currentLevelIndex===2) { showBanner('1-3 通关！R 进入 1-4'); game.currentLevelIndex=3; }
-        else { showBanner('全部通关！R 重玩'); game.currentLevelIndex=0; }
-        try { saveCurrentLevel?.(game.currentLevelIndex); const levelId = getLevelId?.(game.currentLevelIndex); if (levelId) clearCheckpoint?.(levelId); } catch {}
+        // 切入庆祝阶段
+        game.winStage = 'celebrate';
+        game.score += game.flagBonus; updateHUD(); sfx.win();
+        const d = (game._timeAtFlagSec||0) % 10; game._fwRemain = (d===1?1:(d===3?3:(d===6?6:0))); game._fwTimer = 0; game._nextCountdown = 3; game._celebrateTick = 0;
+        if (game.currentLevelIndex===0) { game._nextMsg='1-1 通关！{n} 秒后进入 1-2（按 R 立即进入）'; game.currentLevelIndex=1; }
+        else if (game.currentLevelIndex===1) { game._nextMsg='1-2 通关！{n} 秒后进入 1-3（按 R 立即进入）'; game.currentLevelIndex=2; }
+        else if (game.currentLevelIndex===2) { game._nextMsg='1-3 通关！{n} 秒后进入 1-4（按 R 立即进入）'; game.currentLevelIndex=3; }
+        else { game._nextMsg='全部通关！{n} 秒后回到 1-1（按 R 立即进入）'; game.currentLevelIndex=0; }
+        showBanner(game._nextMsg.replace('{n}', String(game._nextCountdown)));
       }
+    }
+    else if (game.winStage === 'celebrate') {
+      // 烟花：按节奏依次绽放
+      if (game._fwTimer>0) game._fwTimer -= dt;
+      if (game._fwRemain>0 && game._fwTimer<=0) {
+        game._fwTimer = 0.35; game._fwRemain--;
+        const fx = (game._flagX||player.x) + 80 + Math.random()*160;
+        const fy = Math.max(40, player.y - 140 - Math.random()*60);
+        game.particles.burstRect(fx, fy, 10, 10, '#fcd34d', 10, 260); sfx.firework();
+        game.score += (GAME_CONFIG.fireworkScore||500); updateHUD();
+      }
+      // 倒计时自动进入下一关
+      game._celebrateTick += dt;
+      if (game._celebrateTick>=1) { game._celebrateTick=0; game._nextCountdown = Math.max(0, (game._nextCountdown||0)-1); showBanner(game._nextMsg.replace('{n}', String(game._nextCountdown))); }
+      if ((game._nextCountdown||0) <= 0) { hideBanner(); try { saveCurrentLevel?.(game.currentLevelIndex); const levelId = getLevelId?.(game.currentLevelIndex); if (levelId) clearCheckpoint?.(levelId); } catch {}; loadLevel(); }
     }
   }
 

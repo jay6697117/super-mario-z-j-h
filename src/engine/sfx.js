@@ -42,6 +42,7 @@ class SFX {
   bump() { this.bip({ freq: 420, dur: 0.06, type: 'square' }); }
   break() { this.bip({ freq: 300, dur: 0.14, type: 'sawtooth' }); }
   star() { this.bip({ freq: 1000, dur: 0.15, type: 'triangle' }); }
+  firework() { this.bip({ freq: 740, dur: 0.06, type: 'square' }); this.bip({ freq: 392, dur: 0.08, type: 'triangle' }); }
 
   musicStart() { if (!this.ctx) return; this._music.on = true; this._music.speed = 1; this._music.mode = 'normal'; this._music.lastTick = this.ctx.currentTime; }
   musicSpeedUp() { this._music.speed = 1.5; this._music.mode = 'low'; }

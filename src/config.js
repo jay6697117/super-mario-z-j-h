@@ -10,4 +10,5 @@ export const GAME_CONFIG = {
   settleSegSize: 22,         // 七段数码管单字尺寸（像素）
   settleSegThick: 4,         // 七段线条粗细
   settleDrainPerSec: 60,     // 结算阶段每秒减少的时间（秒/秒）
+  fireworkScore: 500,        // 每朵烟花加分
 };
