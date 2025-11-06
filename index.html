@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HTML 超级玛丽（致敬版）</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <canvas id="game" width="960" height="540"></canvas>
+      <div class="hud" id="hud">
+        <div>分数：<span id="score">0</span></div>
+        <div>金币：<span id="coins">0</span></div>
+        <div>生命：<span id="lives">∞</span></div>
+        <div>关卡：<span id="level">1-1</span></div>
+        <div>时间：<span id="time">300</span></div>
+      </div>
+      <div class="help">
+        操作：A/D 或 ←/→ 移动，K/空格 跳跃，X 射击，↓ 进管道，P 暂停，R 重置
+      </div>
+      <div class="banner" id="banner"></div>
+      <div class="touch-controls" id="touch">
+        <button class="btn left" data-key="left">◀︎</button>
+        <button class="btn right" data-key="right">▶︎</button>
+        <button class="btn down" data-key="down">⬇︎</button>
+        <button class="btn jump" data-key="jump">⤒</button>
+        <button class="btn fire" data-key="shoot">✷</button>
+      </div>
+    </div>
+    <script type="module" src="src/main.js"></script>
+  </body>
+  </html>
+
