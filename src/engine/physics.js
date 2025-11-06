@@ -10,12 +10,13 @@ export class Physics {
 
   collideAndSlideRect(rect, vx, vy, level) {
     let dx = vx, dy = vy; // 水平
+    const touching = { up:false, down:false, left:false, right:false };
     if (dx !== 0) {
       const sign = Math.sign(dx);
       const x1 = sign > 0 ? Math.floor((rect.x + rect.w + dx) / TILE_SIZE) : Math.floor((rect.x + dx) / TILE_SIZE);
       const yTop = Math.floor(rect.y / TILE_SIZE);
       const yBot = Math.floor((rect.y + rect.h - 1) / TILE_SIZE);
-      for (let y = yTop; y <= yBot; y++) { const t = this.tileAt(level, x1, y); if (this.isSolid(t)) { if (sign > 0) rect.x = x1 * TILE_SIZE - rect.w - 0.01; else rect.x = (x1 + 1) * TILE_SIZE + 0.01; dx = 0; break; } }
+      for (let y = yTop; y <= yBot; y++) { const t = this.tileAt(level, x1, y); if (this.isSolid(t)) { if (sign > 0) { rect.x = x1 * TILE_SIZE - rect.w - 0.01; touching.right = true; } else { rect.x = (x1 + 1) * TILE_SIZE + 0.01; touching.left = true; } dx = 0; break; } }
       rect.x += dx;
     }
     let onGround = false; let headHit = null; // 竖直
@@ -24,10 +25,10 @@ export class Physics {
       const y1 = sign > 0 ? Math.floor((rect.y + rect.h + dy) / TILE_SIZE) : Math.floor((rect.y + dy) / TILE_SIZE);
       const xL = Math.floor(rect.x / TILE_SIZE);
       const xR = Math.floor((rect.x + rect.w - 1) / TILE_SIZE);
-      for (let x = xL; x <= xR; x++) { const t = this.tileAt(level, x, y1); if (this.isSolid(t)) { if (sign > 0) { rect.y = y1 * TILE_SIZE - rect.h - 0.01; onGround = true; } else { rect.y = (y1 + 1) * TILE_SIZE + 0.01; headHit = { x, y: y1, tile: t }; } dy = 0; break; } }
+      for (let x = xL; x <= xR; x++) { const t = this.tileAt(level, x, y1); if (this.isSolid(t)) { if (sign > 0) { rect.y = y1 * TILE_SIZE - rect.h - 0.01; onGround = true; touching.down = true; } else { rect.y = (y1 + 1) * TILE_SIZE + 0.01; headHit = { x, y: y1, tile: t }; touching.up = true; } dy = 0; break; } }
       rect.y += dy;
     }
-    return { onGround, headHit };
+    return { onGround, headHit, touching };
   }
 
   rectTileOverlap(rect, level, predicate) {

@@ -16,4 +16,20 @@ export const GAME_CONFIG = {
   settleSegThick: 4,         // 七段线条粗细
   settleDrainPerSec: 60,     // 结算阶段每秒减少的时间（秒/秒）
   fireworkScore: 500,        // 每朵烟花加分
+  // 流式生成/离屏回收参数（里程碑A）
+  stream: {
+    activateMargin: 320,     // 激活带：相机左右各 N 像素
+    despawnLeft: 480,        // 左侧回收阈值：相机左边再退 N 像素
+    despawnRight: 640        // 右侧回收阈值（一般可略大，避免闪烁）
+  },
+  // RNG（里程碑B占位）：存在时用于确定性掉落
+  rngSeed: null,
+  // 掉落权重表（用于问号砖等）
+  drops: {
+    question: [
+      { type: 'coin',     weight: 0.50 },
+      { type: 'star',     weight: 0.25 },
+      { type: 'mushroom', weight: 0.25 }
+    ]
+  },
 };

@@ -8,6 +8,7 @@ import { Enemy } from '../entities/enemy.js';
 import { Shell } from '../entities/koopa.js';
 import { getLevelMeta } from '../data/levels-meta.js';
 import { Renderer } from '../engine/renderer.js';
+import { createRNG, pickWeighted } from '../engine/rng.js';
 
 export function runTests(){
   const results=[]; const physics=new Physics();
@@ -28,12 +29,21 @@ export function runTests(){
   const rect={ x: TILE_SIZE, y: TILE_SIZE, w: 16, h: 16, vx:0, vy:200 };
   const res=physics.collideAndSlideRect(rect, 0, TILE_SIZE*3, level);
   results.push(['slide-ground', res.onGround===true]);
+  results.push(['touching-down', res.touching && res.touching.down===true]);
   // 头顶撞击：在头上一格放置方块，向上移动应返回 headHit
   const grid2=Array.from({length:rows},()=>Array(cols).fill('-')); grid2[1][1]='#';
   const level2={ rows, cols, get(x,y){ if(x<0||y<0||x>=cols||y>=rows) return '#'; return grid2[y][x]; } };
   const rect2={ x:TILE_SIZE, y:TILE_SIZE*2, w:16, h:16, vx:0, vy:-200 };
   const res2=physics.collideAndSlideRect(rect2, 0, -TILE_SIZE, level2);
   results.push(['head-hit', !!res2.headHit]);
+  results.push(['touching-up', res2.touching && res2.touching.up===true]);
+
+  // 水平撞墙：应触发 touching.left 或 touching.right
+  const grid3=Array.from({length:rows},()=>Array(cols).fill('-')); for(let y=0;y<rows;y++){ grid3[y][4]='#'; }
+  const level3={ rows, cols, get(x,y){ if(x<0||y<0||x>=cols||y>=rows) return '#'; return grid3[y][x]; } };
+  const rect3={ x: 3*TILE_SIZE, y: TILE_SIZE, w: 16, h: 16 };
+  const res3=physics.collideAndSlideRect(rect3, TILE_SIZE*1.2, 0, level3);
+  results.push(['touching-right', res3.touching && res3.touching.right===true]);
   // 食人花：近距玩家阻塞逻辑（近时不露头，远离后上浮）
   const pipeTopY = 5*TILE_SIZE; const pipeCenterX = 10*TILE_SIZE + TILE_SIZE/2;
   const pir = new Piranha(pipeCenterX, pipeTopY);
@@ -101,6 +111,14 @@ export function runTests(){
   const wasAbove = (pl.y + pl.h) <= plat.y + 4 && pl.vy >= 0;
   const stable = overlap && wasAbove;
   results.push(['platform-stand', stable===true]);
+
+  // RNG 确定性：相同种子下权重选择序列一致
+  try {
+    const table=[{type:'coin',weight:0.5},{type:'star',weight:0.25},{type:'mushroom',weight:0.25}];
+    const rngA=createRNG('seed-123'); const rngB=createRNG('seed-123');
+    const seqA=[], seqB=[]; for(let i=0;i<8;i++){ seqA.push(pickWeighted(table, rngA.random)); seqB.push(pickWeighted(table, rngB.random)); }
+    results.push(['rng-drops-deterministic', JSON.stringify(seqA)===JSON.stringify(seqB)]);
+  } catch { results.push(['rng-drops-deterministic', false]); }
   const failed=results.filter(([,ok])=>!ok);
   console.table(results.map(([name,ok])=>({name, ok}))); if(failed.length===0) console.log('所有测试通过'); else console.warn('失败用例', failed);
 }

@@ -12,6 +12,7 @@ import { Coin } from './entities/coin.js';
 import { Mushroom } from './entities/mushroom.js';
 import { Bullet } from './entities/bullet.js';
 import { RewardCoin } from './entities/reward-coin.js';
+import { createRNG, pickWeighted } from './engine/rng.js';
 import { Flower } from './entities/flower.js';
 import { Piranha } from './entities/piranha.js';
 import { Koopa, Shell } from './entities/koopa.js';
@@ -48,7 +49,77 @@ const hudRoot = document.getElementById('hud');
 const GameState = { Playing: 'playing', Paused: 'paused', Win: 'win', Lose: 'lose', Select: 'select' };
 // 暴露测试入口
 try { window.runTests = runTests; } catch {}
-const game = { state: GameState.Playing, level:null, input:new Input(), renderer:new Renderer(canvas, ctx), physics:new Physics(), particles:new Particles(), player:null, entities:[], score:0, coins:0, lives: (GAME_CONFIG.livesEnabled? GAME_CONFIG.initialLives : Infinity), resetRequested:false, currentLevelIndex:0, lastShotAt:0, time:300, timeMax:300, lastTimeSec:null, winStage:null, flagBonus:0, ui:new GameUI(ctx), lowTimeThreshold: GAME_CONFIG.lowTimeThreshold, alertLastSeconds: GAME_CONFIG.alertLastSeconds, timeBonusPerSecond: GAME_CONFIG.timeBonusPerSecond, editor:null };
+const game = { state: GameState.Playing, level:null, input:new Input(), renderer:new Renderer(canvas, ctx), physics:new Physics(), particles:new Particles(), player:null, entities:[], score:0, coins:0, lives: (GAME_CONFIG.livesEnabled? GAME_CONFIG.initialLives : Infinity), resetRequested:false, currentLevelIndex:0, lastShotAt:0, time:300, timeMax:300, lastTimeSec:null, winStage:null, flagBonus:0, ui:new GameUI(ctx), lowTimeThreshold: GAME_CONFIG.lowTimeThreshold, alertLastSeconds: GAME_CONFIG.alertLastSeconds, timeBonusPerSecond: GAME_CONFIG.timeBonusPerSecond, editor:null,
+  // 流式生成/回收（里程碑A）
+  pendingSpawns: [],              // 当前房间待实例化刷怪
+  _activeSpawnById: {},           // spawnId -> 实体
+  _spawnRecords: {},              // spawnId -> spawn 数据
+  _consumedByRoom: {},            // room -> Set(spawnId)
+  _spawnSeq: 1                    // 自增spawn id
+};
+
+// RNG：若配置了种子则使用确定性随机
+let __RNG = null;
+function randf(){ if (!__RNG && GAME_CONFIG.rngSeed!=null) __RNG = createRNG(String(GAME_CONFIG.rngSeed)); return __RNG? __RNG.random() : Math.random(); }
+
+// 一次性掉落型（被拾取/消耗后不再生成）
+const ONCE_TYPES = new Set(['coin','mushroom','flower','star']);
+
+function currentRoomKey(){ const lv=game.level; return (lv && lv.activeRoom) || 'main'; }
+
+function initPendingSpawnsForRoom(){
+  const level = game.level; if (!level) return;
+  const room = currentRoomKey();
+  const base = (typeof level.getSpawns === 'function') ? level.getSpawns() : (level.spawns||[]);
+  if (!game._consumedByRoom[room]) game._consumedByRoom[room] = new Set();
+  game.pendingSpawns = [];
+  for (const s of base){ const id = game._spawnSeq++; const key = `${room}:${s.type||'unknown'}:${(s.x|0)},${(s.y|0)}`; const rec = { ...s, _id: id, _key: key, _room: room }; game._spawnRecords[id]=rec; if (!game._consumedByRoom[room].has(key)) game.pendingSpawns.push(rec); }
+}
+
+function instantiateSpawn(rec){
+  const t = rec.type; const x=rec.x|0, y=rec.y|0; let ent=null;
+  try{
+    if (t==='enemy') ent = new Enemy(x,y);
+    else if (t==='koopa') ent = new Koopa(x,y);
+    else if (t==='coin') ent = new Coin(x,y);
+    else if (t==='mushroom') ent = new Mushroom(x,y);
+    else if (t==='flower') ent = new Flower(x,y);
+    else if (t==='star') ent = new Star(x,y);
+    else if (t==='piranha') ent = new Piranha(x, y, { upTime: rec.upTime, downTime: rec.downTime, holdUp: rec.holdUp, holdDown: rec.holdDown, nearTilesX: rec.nearTilesX, nearYOffset: rec.nearYOffset });
+    else if (t==='cheep') ent = new Cheep(x,y, rec.dir!=null?rec.dir:undefined);
+    else if (t==='blooper') ent = new Blooper(x,y);
+    else if (t==='cannon') { const c=new Cannon(x,y,(rec.dir!=null?rec.dir:-1),(rec.period!=null?rec.period:2.2)); if(rec.range!=null) c.range=rec.range; if(rec.maxActive!=null) c.maxActive=rec.maxActive; ent=c; }
+    else if (t==='hammer-bro') { const h=new HammerBro(x,y); if(rec.jumpCd!=null) h.jumpCd=rec.jumpCd; if(rec.throwCd!=null) h.throwCd=rec.throwCd; ent=h; }
+    else if (t==='lakitu') { const l=new Lakitu(x,y); if(rec.dropCd!=null) l.dropCd=rec.dropCd; if(rec.maxSpinyActive!=null) l.maxSpinyActive=rec.maxSpinyActive; if(rec.rangeTiles!=null) l.dropActiveRangeTiles=rec.rangeTiles; ent=l; }
+    else if (t==='spiny') ent = new Spiny(x,y);
+    else if (t==='platform' || t==='platform-h') ent = new MovingPlatform(x,y, rec.w||48, rec.h||12, 'h', rec.range||96, rec.speed||60);
+    else if (t==='platform-v') ent = new MovingPlatform(x,y, rec.w||48, rec.h||12, 'v', rec.range||96, rec.speed||60);
+    else if (t==='firebar') ent = new FireBar(x,y, rec.segments||6, rec.speed||2);
+    else if (t==='warp') ent = { kind:'warp', x:x, y:y, w:rec.w||32, h:rec.h||32, to: (typeof rec.to==='number'?rec.to:0) };
+    else if (t==='flame' || t==='flame-spout') ent = new FlameSpout(x,y, rec.dir||'up', rec.length||48, rec.period||2.0, rec.on||0.8);
+  }catch{}
+  if (ent){ ent._spawnId = rec._id; ent._room = rec._room; game._activeSpawnById[rec._id]=ent; game.entities.push(ent); }
+}
+
+function spawnTick(){
+  const level = game.level; if (!level) return; const room=currentRoomKey();
+  const camW = game.renderer.canvas.width, worldW = level.cols*TILE_SIZE;
+  const px = game.player.x + game.player.w/2;
+  let viewL = Math.max(0, Math.min(px - camW*0.5, Math.max(0, worldW - camW)));
+  let viewR = Math.min(worldW, viewL + camW);
+  const margin = (GAME_CONFIG.stream?.activateMargin)||320;
+  const actL = Math.max(0, viewL - margin), actR = Math.min(worldW, viewR + margin);
+  const rest=[];
+  for(const rec of game.pendingSpawns){ const sx = rec.x|0; if (sx>=actL && sx<=actR){ instantiateSpawn(rec); } else rest.push(rec); }
+  game.pendingSpawns = rest;
+  // 离屏回收
+  const dspL = viewL - ((GAME_CONFIG.stream?.despawnLeft)||480);
+  const dspR = viewR + ((GAME_CONFIG.stream?.despawnRight)||640);
+  for(const ent of game.entities){ if (!ent || ent.dead) continue; const ex = (ent.x||0) + (ent.w||0)*0.5; if (ex < dspL || ex > dspR){ const sid = ent._spawnId; if (sid!=null){ delete game._activeSpawnById[sid]; const rec = game._spawnRecords[sid]; const consumed = rec? game._consumedByRoom[room]?.has(rec._key) : false; if (!consumed && rec && rec._room===room) game.pendingSpawns.push(rec); } ent.dead = true; } }
+  game.entities = game.entities.filter(e=>e && !e.dead);
+}
+
+function markSpawnConsumed(ent){ const sid = ent && ent._spawnId; if (sid==null) return; const room=currentRoomKey(); const rec = game._spawnRecords[sid]; if (!rec) return; if (!game._consumedByRoom[room]) game._consumedByRoom[room]=new Set(); game._consumedByRoom[room].add(rec._key); }
 
 function getLevelByIndex(i){ const m = ((i%4)+4)%4; if(m===0) return createLevel1(); if(m===1) return createLevel2(); if(m===2) return createLevel3(); if(m===3) return createLevel4(); return createLevel1(); }
 const WORLD_MAP = WORLD_MAP_DATA;
@@ -65,29 +136,9 @@ function loadLevel(){
   const spawnX = (cp && cp.x != null) ? cp.x : level.spawn.x;
   const spawnY = (cp && cp.y != null) ? cp.y : level.spawn.y;
   game.player=new Player(spawnX, spawnY);
-  for(const e of (level.getSpawns? level.getSpawns(): level.spawns)){
-    if(e.type==='enemy') game.entities.push(new Enemy(e.x,e.y));
-    if(e.type==='koopa') game.entities.push(new Koopa(e.x,e.y));
-    if(e.type==='coin') game.entities.push(new Coin(e.x,e.y));
-    if(e.type==='mushroom') game.entities.push(new Mushroom(e.x,e.y));
-    if(e.type==='flower') game.entities.push(new Flower(e.x,e.y));
-    if(e.type==='piranha') {
-      const opts = { upTime: e.upTime, downTime: e.downTime, holdUp: e.holdUp, holdDown: e.holdDown, nearTilesX: e.nearTilesX, nearYOffset: e.nearYOffset };
-      game.entities.push(new Piranha(e.x, e.y, opts));
-    }
-    if(e.type==='star') game.entities.push(new Star(e.x,e.y));
-    if(e.type==='firebar') game.entities.push(new FireBar(e.x, e.y, e.segments, e.speed));
-    if(e.type==='cheep') game.entities.push(new Cheep(e.x,e.y,e.dir||-1));
-    if(e.type==='blooper') game.entities.push(new Blooper(e.x,e.y));
-    if(e.type==='cannon') { const c=new Cannon(e.x,e.y,(e.dir!=null?e.dir:-1),(e.period!=null?e.period:2.2)); if(e.range!=null) c.range=e.range; if(e.maxActive!=null) c.maxActive=e.maxActive; game.entities.push(c);} 
-    if(e.type==='hammer-bro') { const h=new HammerBro(e.x,e.y); if(e.jumpCd!=null) h.jumpCd=e.jumpCd; if(e.throwCd!=null) h.throwCd=e.throwCd; game.entities.push(h);} 
-    if(e.type==='lakitu') { const l=new Lakitu(e.x,e.y); if(e.dropCd!=null) l.dropCd=e.dropCd; if(e.maxSpinyActive!=null) l.maxSpinyActive=e.maxSpinyActive; if(e.rangeTiles!=null) l.dropActiveRangeTiles=e.rangeTiles; game.entities.push(l);} 
-    if(e.type==='spiny') game.entities.push(new Spiny(e.x,e.y));
-    if(e.type==='platform-h'){ const p=new MovingPlatform(e.x, e.y, e.w||48, e.h||12, 'h', e.range||96, e.speed||60); game.entities.push(p); }
-    if(e.type==='platform-v'){ const p=new MovingPlatform(e.x, e.y, e.w||48, e.h||12, 'v', e.range||96, e.speed||60); game.entities.push(p); }
-    if(e.type==='warp'){ const w={ kind:'warp', x:e.x, y:e.y, w:e.w||32, h:e.h||32, to: (typeof e.to==='number'?e.to:0) }; game.entities.push(w); }
-    if(e.type==='flame'){ const f=new FlameSpout(e.x, e.y, e.dir||'up', e.length||48, e.period||2.0, e.on||0.8); game.entities.push(f); }
-  }
+  // 初始化刷怪系统（主房间：不一次性实例化）
+  game._activeSpawnById = {}; game._spawnRecords={}; game._consumedByRoom={}; game.pendingSpawns=[]; game._spawnSeq=1;
+  initPendingSpawnsForRoom();
   game.renderer.setWorldSize(level.cols*TILE_SIZE, level.rows*TILE_SIZE);
   game.renderer.cameraFollow(game.player);
   game.state=GameState.Playing;
@@ -172,10 +223,17 @@ function step(dt){
         level.set(x, y, 'N');
         if (player.powered && !player.canShoot) { entities.push(new Flower(x*TILE_SIZE, (y-1)*TILE_SIZE)); sfx.powerup(); }
         else {
-          const r = Math.random();
-          if (r < 0.5) { const rc = new RewardCoin(x*TILE_SIZE+6, y*TILE_SIZE-8); entities.push(rc); game.coins += 1; game.score += 100; updateHUD(); sfx.coin(); }
-          else if (r < 0.75) { entities.push(new Star(x*TILE_SIZE+6, y*TILE_SIZE-8)); sfx.star(); }
-          else { entities.push(new Mushroom(x*TILE_SIZE, (y-1)*TILE_SIZE)); sfx.powerup(); }
+          const table = (GAME_CONFIG.drops && GAME_CONFIG.drops.question) || [
+            { type: 'coin', weight: 0.5 },
+            { type: 'star', weight: 0.25 },
+            { type: 'mushroom', weight: 0.25 },
+          ];
+          const pick = pickWeighted(table, randf);
+          if (pick === 'coin') { const rc = new RewardCoin(x*TILE_SIZE+6, y*TILE_SIZE-8); entities.push(rc); game.coins += 1; game.score += 100; updateHUD(); sfx.coin(); }
+          else if (pick === 'star') { entities.push(new Star(x*TILE_SIZE+6, y*TILE_SIZE-8)); sfx.star(); }
+          else if (pick === 'mushroom') { entities.push(new Mushroom(x*TILE_SIZE, (y-1)*TILE_SIZE)); sfx.powerup(); }
+          else if (pick === 'flower') { entities.push(new Flower(x*TILE_SIZE, (y-1)*TILE_SIZE)); sfx.powerup(); }
+          else { const rc = new RewardCoin(x*TILE_SIZE+6, y*TILE_SIZE-8); entities.push(rc); game.coins += 1; game.score += 100; updateHUD(); sfx.coin(); }
         }
       } else {
         // 多金币砖：在时间窗口内可多次出币，用尽或超时后变 N
@@ -273,10 +331,10 @@ function step(dt){
   // 玩家与实体交互
   for (const ent of entities) {
     if (!physics.aabbOverlap(player, ent)) continue;
-    if (ent.kind === 'coin') { ent.dead = true; game.coins += 1; game.score += 100; updateHUD(); sfx.coin(); }
-    else if (ent.kind === 'mushroom') { ent.dead = true; player.setPowered(true); game.score += 300; updateHUD(); sfx.powerup(); }
-    else if (ent.kind === 'flower') { ent.dead = true; player.setPowered(true); player.canShoot = true; game.score += 500; updateHUD(); sfx.powerup(); }
-    else if (ent.kind === 'star') { ent.dead = true; player.invincibleTime = 10; game.score += 500; updateHUD(); sfx.star(); }
+    if (ent.kind === 'coin') { ent.dead = true; markSpawnConsumed(ent); game.coins += 1; game.score += 100; updateHUD(); sfx.coin(); }
+    else if (ent.kind === 'mushroom') { ent.dead = true; markSpawnConsumed(ent); player.setPowered(true); game.score += 300; updateHUD(); sfx.powerup(); }
+    else if (ent.kind === 'flower') { ent.dead = true; markSpawnConsumed(ent); player.setPowered(true); player.canShoot = true; game.score += 500; updateHUD(); sfx.powerup(); }
+    else if (ent.kind === 'star') { ent.dead = true; markSpawnConsumed(ent); player.invincibleTime = 10; game.score += 500; updateHUD(); sfx.star(); }
     else if (ent.kind === 'enemy' || ent.kind === 'koopa' || ent.kind === 'piranha' || ent.kind==='cheep' || ent.kind==='blooper' || ent.kind==='bill' || ent.kind==='hammer-bro' || ent.kind==='hammer' || ent.kind==='lakitu' || ent.kind==='spiny') {
       const stomping = (ent.kind !== 'piranha' && ent.kind !== 'spiny') && player.vy > 0 && player.bottom() - ent.top() < 16;
       if (stomping) { if (ent.kind === 'koopa') { ent.dead = true; entities.push(new Shell(ent.x, ent.y + ent.h - 22)); } else ent.dead = true; player.vy = -player.jumpSpeed * 0.6; game.score += 200; updateHUD(); sfx.stomp(); }
@@ -384,9 +442,22 @@ function step(dt){
 
   // 管道进出
   const pipe = physics.rectFindTile(player, level, (t)=>t==='V');
-  if (pipe && input.downPressed && typeof level.activate==='function' && level.activeRoom==='main' && level.sub) { level.activate('sub'); game.renderer.setWorldSize(level.cols*TILE_SIZE, level.rows*TILE_SIZE); game.player.x = level.spawn.x; game.player.y = level.spawn.y; game.player.vx = 0; game.player.vy = 0; if (!level._spawnedSub && level.getSpawns) { for (const e of level.getSpawns()) { if (e.type==='enemy') entities.push(new Enemy(e.x,e.y)); if (e.type==='coin') entities.push(new Coin(e.x,e.y)); if (e.type==='mushroom') entities.push(new Mushroom(e.x,e.y)); if (e.type==='koopa') entities.push(new Koopa(e.x,e.y)); if (e.type==='star') entities.push(new Star(e.x,e.y)); } level._spawnedSub = true; } showBanner('进入地下'); setTimeout(hideBanner, 600); }
+  if (pipe && input.downPressed && typeof level.activate==='function' && level.activeRoom==='main' && level.sub) {
+    level.activate('sub');
+    game.renderer.setWorldSize(level.cols*TILE_SIZE, level.rows*TILE_SIZE);
+    game.player.x = level.spawn.x; game.player.y = level.spawn.y; game.player.vx = 0; game.player.vy = 0;
+    // 房间切换后按可视窗口懒加载
+    initPendingSpawnsForRoom();
+    showBanner('进入地下'); setTimeout(hideBanner, 600);
+  }
   const exit = physics.rectFindTile(player, level, (t)=>t==='X');
-  if (exit && typeof level.activate==='function' && level.activeRoom==='sub') { level.activate('main'); game.renderer.setWorldSize(level.cols*TILE_SIZE, level.rows*TILE_SIZE); game.player.x = level.returnPoint ? level.returnPoint.x : level.spawn.x; game.player.y = level.returnPoint ? level.returnPoint.y : level.spawn.y; game.player.vx = 0; game.player.vy = 0; showBanner('返回地面'); setTimeout(hideBanner, 600); }
+  if (exit && typeof level.activate==='function' && level.activeRoom==='sub') {
+    level.activate('main');
+    game.renderer.setWorldSize(level.cols*TILE_SIZE, level.rows*TILE_SIZE);
+    game.player.x = level.returnPoint ? level.returnPoint.x : level.spawn.x; game.player.y = level.returnPoint ? level.returnPoint.y : level.spawn.y; game.player.vx = 0; game.player.vy = 0;
+    initPendingSpawnsForRoom();
+    showBanner('返回地面'); setTimeout(hideBanner, 600);
+  }
 
   // Warp 区触发
   for (const ent of entities) {
@@ -399,6 +470,8 @@ function step(dt){
     }
   }
 
+  // 刷怪流式激活/回收
+  spawnTick();
   // 摄像机
   game.renderer.cameraFollow(player);
   if (level.autoScrollSpeed && level.autoScrollSpeed>0){
