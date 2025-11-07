@@ -206,7 +206,7 @@ document.addEventListener('keydown', (e)=>{ sfx.initOnUserGesture(); const block
 const touch=document.getElementById('touch'); if(touch){ const apply=(el,on)=>{ const key=el.dataset.key; const handler=(ev)=>{ ev.preventDefault(); game.input.setVirtual(key,on);} ; el.addEventListener('touchstart',handler,{passive:false}); el.addEventListener('touchend',(ev)=>{ev.preventDefault(); game.input.setVirtual(key,false);},{passive:false}); el.addEventListener('touchcancel',(ev)=>{ev.preventDefault(); game.input.setVirtual(key,false);},{passive:false}); el.addEventListener('mousedown',handler); el.addEventListener('mouseup',()=>game.input.setVirtual(key,false)); el.addEventListener('mouseleave',()=>game.input.setVirtual(key,false)); }; touch.querySelectorAll('button').forEach((btn)=>apply(btn,true)); }
 
 const FIXED_DT = 1/60; let acc=0; let last=performance.now();
-function frame(now){ const dt=Math.min(0.1,(now-last)/1000); last=now; if(game.state===GameState.Playing) acc+=dt; if(game.resetRequested){ loadLevel(); } while(acc>=FIXED_DT){ step(FIXED_DT); acc-=FIXED_DT; } render(); sfx.musicTick(); requestAnimationFrame(frame); }
+function frame(now){ const dt=Math.min(0.1,(now-last)/1000); last=now; if(game.state===GameState.Playing || game.state===GameState.Win) acc+=dt; if(game.resetRequested){ loadLevel(); } while(acc>=FIXED_DT){ step(FIXED_DT); acc-=FIXED_DT; } render(); sfx.musicTick(); requestAnimationFrame(frame); }
 
 function step(dt){
   const { level, player, entities, input, physics } = game;
@@ -232,7 +232,7 @@ function step(dt){
   const sec = Math.max(0, Math.ceil(game.time));
   if (game.lastTimeSec !== sec) { if (sec <= game.alertLastSeconds) sfx.alertBeep(); game.lastTimeSec = sec; }
   updateHUD();
-
+  
   // 顶砖
   const hh = player.lastHeadHit;
   if (hh) {
@@ -270,6 +270,8 @@ function step(dt){
       }
     }
   }
+  // 多金币砖计时衰减（全局tick）
+  if (level._mcState){ for (const k of Object.keys(level._mcState)){ const st=level._mcState[k]; st.timer -= dt; if (st.timer<=0){ const [sx,sy]=k.split(',').map(n=>parseInt(n)); level.set(sx, sy, 'N'); delete level._mcState[k]; } } }
 
   // 中途旗（K）：保存重生点
   const cpt = physics.rectFindTile(player, level, (t)=>t==='K');
@@ -521,5 +523,3 @@ function render(){ const { renderer, level, player, entities } = game; renderer.
 }
 
 loadLevel(); requestAnimationFrame(frame);
-  // 多金币砖计时衰减
-  if (level._mcState){ for (const k of Object.keys(level._mcState)){ const st=level._mcState[k]; st.timer -= dt; if (st.timer<=0){ const [sx,sy]=k.split(',').map(n=>parseInt(n)); level.set(sx, sy, 'N'); delete level._mcState[k]; } } }
